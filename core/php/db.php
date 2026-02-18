@@ -8,14 +8,14 @@
  * overrides in overrides/{app}/php/db.php take precedence.
  */
 
-if (!function_exists('db_connect')) {
+if (!function_exists('core_db_connect')) {
     /**
      * Open a SQLite connection with WAL mode and foreign keys enabled.
      *
      * @param string $path Absolute or relative path to the .db file.
      * @return PDO
      */
-    function db_connect(string $path): PDO
+    function core_db_connect(string $path): PDO
     {
         $db = new PDO('sqlite:' . $path);
 
@@ -29,7 +29,7 @@ if (!function_exists('db_connect')) {
     }
 }
 
-if (!function_exists('db_get')) {
+if (!function_exists('core_db_get')) {
     /**
      * Execute a SELECT and return the first row, or null if no rows match.
      *
@@ -38,7 +38,7 @@ if (!function_exists('db_get')) {
      * @param array  $params Positional or named parameters.
      * @return array|null
      */
-    function db_get(PDO $db, string $sql, array $params = []): array|null
+    function core_db_get(PDO $db, string $sql, array $params = []): array|null
     {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
@@ -47,7 +47,7 @@ if (!function_exists('db_get')) {
     }
 }
 
-if (!function_exists('db_all')) {
+if (!function_exists('core_db_all')) {
     /**
      * Execute a SELECT and return all matching rows.
      *
@@ -56,7 +56,7 @@ if (!function_exists('db_all')) {
      * @param array  $params Positional or named parameters.
      * @return array
      */
-    function db_all(PDO $db, string $sql, array $params = []): array
+    function core_db_all(PDO $db, string $sql, array $params = []): array
     {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
@@ -64,7 +64,7 @@ if (!function_exists('db_all')) {
     }
 }
 
-if (!function_exists('db_run')) {
+if (!function_exists('core_db_run')) {
     /**
      * Execute a statement (INSERT, UPDATE, DELETE, PRAGMA, etc.).
      * Returns true on success; throws PDOException on failure.
@@ -74,14 +74,14 @@ if (!function_exists('db_run')) {
      * @param array  $params Positional or named parameters.
      * @return bool
      */
-    function db_run(PDO $db, string $sql, array $params = []): bool
+    function core_db_run(PDO $db, string $sql, array $params = []): bool
     {
         $stmt = $db->prepare($sql);
         return $stmt->execute($params);
     }
 }
 
-if (!function_exists('db_insert')) {
+if (!function_exists('core_db_insert')) {
     /**
      * Execute an INSERT and return the last inserted row ID.
      *
@@ -90,7 +90,7 @@ if (!function_exists('db_insert')) {
      * @param array  $params Positional or named parameters.
      * @return int
      */
-    function db_insert(PDO $db, string $sql, array $params = []): int
+    function core_db_insert(PDO $db, string $sql, array $params = []): int
     {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
