@@ -1,4 +1,4 @@
-apps/*/data/*.db
+apps/*/data/
 .env
 .env.*
 !.env.example
