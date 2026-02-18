@@ -1,0 +1,17 @@
+{
+  "app": "ledger",
+  "name": "RoosterMade Ledger",
+  "description": "Prepaid credit and billing management for RoosterMade micro-SaaS",
+  "version": "1.0.0",
+  "core_version": "1.0.0",
+  "requires": [],
+  "stripe": true,
+  "webhooks": true,
+  "mcp": true,
+  "env": {
+    "required": ["APP_URL", "API_KEY", "STRIPE_SECRET_KEY",
+                 "STRIPE_WEBHOOK_SECRET", "STRIPE_PUBLISHABLE_KEY",
+                 "MAIL_PROVIDER", "MAIL_API_KEY", "MAIL_FROM"],
+    "optional": ["MAIL_FROM_NAME", "APP_NAME"]
+  }
+}

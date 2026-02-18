@@ -1,0 +1,5 @@
+{
+  "name": "roostermade",
+  "core_version": "1.0.0",
+  "apps": ["apps/ledger"]
+}
