@@ -21,9 +21,11 @@ if (!function_exists('core_db_connect')) {
 
         $db->setAttribute(PDO::ATTR_ERRMODE,            PDO::ERRMODE_EXCEPTION);
         $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $db->setAttribute(PDO::ATTR_STRINGIFY_FETCHES,  false);
 
         $db->exec('PRAGMA journal_mode = WAL');
         $db->exec('PRAGMA foreign_keys = ON');
+        $db->exec('PRAGMA busy_timeout = 5000');
 
         return $db;
     }
@@ -95,5 +97,31 @@ if (!function_exists('core_db_insert')) {
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
         return (int) $db->lastInsertId();
+    }
+}
+
+if (!function_exists('core_db_transaction')) {
+    /**
+     * Run a callable inside a database transaction.
+     *
+     * Commits on success and returns the callable's return value.
+     * Rolls back and rethrows on any exception.
+     *
+     * @param PDO      $db
+     * @param callable $fn Called with $db as its only argument.
+     * @return mixed Return value of $fn.
+     * @throws Throwable Re-throws whatever $fn throws.
+     */
+    function core_db_transaction(PDO $db, callable $fn): mixed
+    {
+        $db->beginTransaction();
+        try {
+            $result = $fn($db);
+            $db->commit();
+            return $result;
+        } catch (Throwable $e) {
+            $db->rollBack();
+            throw $e;
+        }
     }
 }
