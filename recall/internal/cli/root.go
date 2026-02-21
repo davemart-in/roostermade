@@ -18,6 +18,7 @@ func NewRootCmd() *cobra.Command {
 	cmd.AddCommand(newManCmd())
 	cmd.AddCommand(newConfigCmd())
 	cmd.AddCommand(newContextCmd())
+	cmd.AddCommand(newDoctorCmd())
 	cmd.AddCommand(newExportCmd())
 	cmd.AddCommand(newImportCmd())
 	cmd.AddCommand(newMCPCmd())

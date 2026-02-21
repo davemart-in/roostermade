@@ -92,6 +92,7 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall man` - Print command reference
 - `recall config` - Interactive config/doc editor
 - `recall context` - Print project context snapshot
+- `recall doctor` - Run health checks (project/db/summarizer)
 - `recall export` - Export data to `recall-export-[YYYY-MM-DD].zip`
 - `recall import <zipfile>` - Import recall data from an export zip
 - `recall mcp` - Run MCP server over stdio
@@ -121,15 +122,20 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 `recall context` prints a snapshot with:
 
 1. `.recall/context.md`
-2. recent summaries (default: last 5, full body)
+2. recent summaries (default: last 5, one-line preview)
 3. docs index (registered docs except `context.md`) with one-line descriptions
+4. optional query matches (when `--query` is provided)
 
 By default, output is capped at 16,000 chars for safety.
 
 - `--full` disables truncation and prints everything.
 - `--max-chars <n>` overrides the default cap.
 - `--summary-limit <n>` controls how many recent summaries to include (`0` disables summaries section content).
+- `--summary-full` prints full summary bodies instead of one-line previews.
 - `--include-doc-index=false` omits the docs index section.
+- `--query <text>` adds matching notes/summaries sections.
+- `--query-note-limit <n>` controls number of note matches for `--query`.
+- `--query-summary-limit <n>` controls number of summary matches for `--query`.
 
 Examples:
 
@@ -138,7 +144,9 @@ recall context
 recall context --full
 recall context --max-chars 8000
 recall context --summary-limit 10
+recall context --summary-full
 recall context --include-doc-index=false
+recall context --query "auth migration" --query-note-limit 5 --query-summary-limit 5
 ```
 
 If `.recall/context.md` is missing:
@@ -199,7 +207,22 @@ Commands that require Recall project state return:
 
 `Recall is not initialized in this project. Run \`recall init\` first.`
 
-This applies to note/summary/doc/status/config/context/export/mcp commands.
+This applies to note/summary/doc/status/config/context/doctor/export/mcp commands.
+
+## Doctor
+
+Run diagnostics:
+
+```bash
+recall doctor
+```
+
+Checks include:
+
+- project initialization
+- config/context/db readability
+- effective summarizer command
+- selected provider prerequisites (Claude/Codex/Cursor)
 
 ## Development
 

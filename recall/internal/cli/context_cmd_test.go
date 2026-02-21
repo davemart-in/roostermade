@@ -43,7 +43,7 @@ func TestBuildContextPartsIncludesContextSummariesAndDocIndex(t *testing.T) {
 	}
 
 	cfg := config.Config{Docs: []string{docs.ContextFilename, "api.md"}}
-	parts, err := buildContextParts(root, cfg, 5, true)
+	parts, err := buildContextParts(root, cfg, 5, false, true, "", 5, 5)
 	if err != nil {
 		t.Fatalf("buildContextParts: %v", err)
 	}
@@ -57,7 +57,10 @@ func TestBuildContextPartsIncludesContextSummariesAndDocIndex(t *testing.T) {
 		t.Fatalf("expected summaries second, got %s", parts[1].filename)
 	}
 	if !strings.Contains(parts[1].text, "id:1") || !strings.Contains(parts[1].text, "Completed implementation") {
-		t.Fatalf("expected full summary section, got %q", parts[1].text)
+		t.Fatalf("expected summary preview section, got %q", parts[1].text)
+	}
+	if strings.Contains(parts[1].text, "\n- [#1] Completed implementation.") {
+		t.Fatalf("expected preview mode to avoid full summary body, got %q", parts[1].text)
 	}
 	if parts[2].filename != "docs-index" {
 		t.Fatalf("expected docs index third, got %s", parts[2].filename)
@@ -76,7 +79,7 @@ func TestBuildContextPartsSummaryLimitZeroAndNoDocIndex(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	parts, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, 0, false)
+	parts, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, 0, false, false, "", 5, 5)
 	if err != nil {
 		t.Fatalf("buildContextParts: %v", err)
 	}
@@ -97,12 +100,52 @@ func TestBuildContextPartsRejectsNegativeSummaryLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, -1, true)
+	_, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, -1, false, true, "", 5, 5)
 	if err == nil {
 		t.Fatal("expected error for negative summary limit")
 	}
 	if !strings.Contains(err.Error(), "--summary-limit") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildContextPartsIncludesQueryMatches(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(config.DirPath(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(config.DirPath(root), docs.ContextFilename), []byte("ctx"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	conn, err := db.Open(config.DBPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := db.NewStore(conn)
+	note, err := store.CreateNote("Auth migration completed", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.CreateSummary(note.ID, "- [#1] Completed auth migration."); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	parts, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, 5, false, false, "auth", 5, 5)
+	if err != nil {
+		t.Fatalf("buildContextParts: %v", err)
+	}
+	if len(parts) != 4 {
+		t.Fatalf("expected 4 parts with query sections, got %d", len(parts))
+	}
+	if parts[2].filename != "matching-notes" || !strings.Contains(parts[2].text, "Auth migration completed") {
+		t.Fatalf("missing matching notes section: %q", parts[2].text)
+	}
+	if parts[3].filename != "matching-summaries" || !strings.Contains(parts[3].text, "Completed auth migration") {
+		t.Fatalf("missing matching summaries section: %q", parts[3].text)
 	}
 }
 

@@ -117,10 +117,38 @@ func buildConfigMenuItems(
 
 	for _, filename := range cfg.Docs {
 		docFilename := filename
+		docPath := docs.DocPath(projectRoot, docFilename)
+		docLabel := fmt.Sprintf("doc: %s", docFilename)
+		if _, err := os.Stat(docPath); err != nil {
+			if os.IsNotExist(err) {
+				docLabel += " (missing)"
+			}
+		}
 		items = append(items, configMenuItem{
-			Label: fmt.Sprintf("doc: %s", docFilename),
+			Label: docLabel,
 			Action: func() error {
 				docPath := docs.DocPath(projectRoot, docFilename)
+				if _, err := os.Stat(docPath); err != nil {
+					if os.IsNotExist(err) {
+						createNow, err := promptYesNo(
+							reader,
+							out,
+							fmt.Sprintf(".recall/%s is missing. Create it now?", docFilename),
+							true,
+						)
+						if err != nil {
+							return err
+						}
+						if !createNow {
+							return nil
+						}
+						if _, err := docs.EnsureDocFile(projectRoot, docFilename, ""); err != nil {
+							return err
+						}
+					} else {
+						return err
+					}
+				}
 				return openEditor(docPath)
 			},
 		})

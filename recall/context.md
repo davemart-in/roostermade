@@ -73,6 +73,7 @@ When `note add` is called and unsummarized note count exceeds `SummaryThreshold`
 recall status                    # note count, summary count, doc count
 recall man                       # full command reference
 recall init                      # guided setup + context capture
+recall doctor                    # health checks for project/db/summarizer
 
 recall note add "<content>" [--llm claude] [--model claude-sonnet-4-6]
 recall note list

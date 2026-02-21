@@ -29,7 +29,11 @@ func newContextCmd() *cobra.Command {
 	var full bool
 	var maxChars int
 	var summaryLimit int
+	var summaryFull bool
 	var includeDocIndex bool
+	var query string
+	var queryNoteLimit int
+	var querySummaryLimit int
 
 	cmd := &cobra.Command{
 		Use:   "context",
@@ -50,7 +54,16 @@ func newContextCmd() *cobra.Command {
 				return err
 			}
 
-			parts, err := buildContextParts(cwd, cfg, summaryLimit, includeDocIndex)
+			parts, err := buildContextParts(
+				cwd,
+				cfg,
+				summaryLimit,
+				summaryFull,
+				includeDocIndex,
+				query,
+				queryNoteLimit,
+				querySummaryLimit,
+			)
 			if err != nil {
 				return err
 			}
@@ -77,7 +90,11 @@ func newContextCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&full, "full", false, "Disable max-size safeguard and print full context")
 	cmd.Flags().IntVar(&maxChars, "max-chars", defaultContextMaxChars, "Maximum chars to print when not using --full")
 	cmd.Flags().IntVar(&summaryLimit, "summary-limit", defaultContextSummaryLimit, "Number of recent summaries to include (0 to disable)")
+	cmd.Flags().BoolVar(&summaryFull, "summary-full", false, "Include full summary body content in recent summaries section")
 	cmd.Flags().BoolVar(&includeDocIndex, "include-doc-index", true, "Include a docs index section")
+	cmd.Flags().StringVar(&query, "query", "", "Include matching notes/summaries for this query")
+	cmd.Flags().IntVar(&queryNoteLimit, "query-note-limit", 5, "Number of matching notes to include when using --query")
+	cmd.Flags().IntVar(&querySummaryLimit, "query-summary-limit", 5, "Number of matching summaries to include when using --query")
 	return cmd
 }
 
@@ -129,9 +146,24 @@ func ensureContextDoc(cmd *cobra.Command, projectRoot string, cfg config.Config)
 	return cfg, nil
 }
 
-func buildContextParts(projectRoot string, cfg config.Config, summaryLimit int, includeDocIndex bool) ([]contextPart, error) {
+func buildContextParts(
+	projectRoot string,
+	cfg config.Config,
+	summaryLimit int,
+	summaryFull bool,
+	includeDocIndex bool,
+	query string,
+	queryNoteLimit int,
+	querySummaryLimit int,
+) ([]contextPart, error) {
 	if summaryLimit < 0 {
 		return nil, errors.New("--summary-limit must be greater than or equal to 0")
+	}
+	if queryNoteLimit < 0 {
+		return nil, errors.New("--query-note-limit must be greater than or equal to 0")
+	}
+	if querySummaryLimit < 0 {
+		return nil, errors.New("--query-summary-limit must be greater than or equal to 0")
 	}
 
 	data, err := os.ReadFile(docs.DocPath(projectRoot, docs.ContextFilename))
@@ -151,7 +183,7 @@ func buildContextParts(projectRoot string, cfg config.Config, summaryLimit int, 
 	}
 	parts = append(parts, contextPart{
 		filename: "recent-summaries",
-		text:     renderRecentSummariesSection(summaryLimit, summaries),
+		text:     renderRecentSummariesSection(summaryLimit, summaryFull, summaries),
 	})
 
 	if includeDocIndex {
@@ -163,6 +195,24 @@ func buildContextParts(projectRoot string, cfg config.Config, summaryLimit int, 
 			filename: "docs-index",
 			text:     indexText,
 		})
+	}
+
+	query = strings.TrimSpace(query)
+	if query != "" {
+		matchingNotes, matchingSummaries, err := loadQueryMatches(projectRoot, query, queryNoteLimit, querySummaryLimit)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts,
+			contextPart{
+				filename: "matching-notes",
+				text:     renderMatchingNotesSection(query, matchingNotes),
+			},
+			contextPart{
+				filename: "matching-summaries",
+				text:     renderMatchingSummariesSection(query, matchingSummaries),
+			},
+		)
 	}
 
 	return parts, nil
@@ -183,7 +233,7 @@ func loadRecentSummaries(projectRoot string, limit int) ([]db.Summary, error) {
 	return store.ListSummaries(limit, 0)
 }
 
-func renderRecentSummariesSection(limit int, summaries []db.Summary) string {
+func renderRecentSummariesSection(limit int, full bool, summaries []db.Summary) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("=== recent summaries (last %d) ===\n", limit))
 	if limit == 0 {
@@ -200,16 +250,104 @@ func renderRecentSummariesSection(limit int, summaries []db.Summary) string {
 		if body == "" {
 			body = "TBD."
 		}
+		if full {
+			b.WriteString(
+				fmt.Sprintf(
+					"id:%d | note_id:%d | created_at:%s\n%s\n\n",
+					item.ID,
+					item.NoteID,
+					item.CreatedAt.UTC().Format(time.RFC3339),
+					body,
+				),
+			)
+			continue
+		}
+		preview := summarizePreview(body, summaryPreviewChars)
 		b.WriteString(
 			fmt.Sprintf(
-				"id:%d | note_id:%d | created_at:%s\n%s\n\n",
+				"id:%d | note_id:%d | created_at:%s | %s\n",
 				item.ID,
 				item.NoteID,
 				item.CreatedAt.UTC().Format(time.RFC3339),
-				body,
+				preview,
 			),
 		)
 	}
+	b.WriteString("\n")
+	return b.String()
+}
+
+func loadQueryMatches(projectRoot string, query string, noteLimit int, summaryLimit int) ([]db.Note, []db.Summary, error) {
+	conn, err := db.Open(config.DBPath(projectRoot))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer conn.Close()
+
+	store := db.NewStore(conn)
+	matchingNotes := make([]db.Note, 0)
+	matchingSummaries := make([]db.Summary, 0)
+	if noteLimit > 0 {
+		matchingNotes, err = store.SearchNotes(query, noteLimit, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	if summaryLimit > 0 {
+		matchingSummaries, err = store.SearchSummaries(query, summaryLimit, 0)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	return matchingNotes, matchingSummaries, nil
+}
+
+func renderMatchingNotesSection(query string, notes []db.Note) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("=== matching notes (query: %q) ===\n", query))
+	if len(notes) == 0 {
+		b.WriteString("no matching notes found\n\n")
+		return b.String()
+	}
+	for _, note := range notes {
+		parts := []string{
+			fmt.Sprintf("[#%d]", note.ID),
+			note.CreatedAt.UTC().Format(time.RFC3339),
+			summarizePreview(note.Content, summaryPreviewChars),
+		}
+		if note.LLM.Valid {
+			parts = append(parts, "llm="+note.LLM.String)
+		}
+		if note.Model.Valid {
+			parts = append(parts, "model="+note.Model.String)
+		}
+		b.WriteString(strings.Join(parts, " | "))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+	return b.String()
+}
+
+func renderMatchingSummariesSection(query string, summaries []db.Summary) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("=== matching summaries (query: %q) ===\n", query))
+	if len(summaries) == 0 {
+		b.WriteString("no matching summaries found\n\n")
+		return b.String()
+	}
+	for _, item := range summaries {
+		preview := summarizePreview(item.Body, summaryPreviewChars)
+		b.WriteString(
+			fmt.Sprintf(
+				"id:%d | note_id:%d | created_at:%s | %s\n",
+				item.ID,
+				item.NoteID,
+				item.CreatedAt.UTC().Format(time.RFC3339),
+				preview,
+			),
+		)
+	}
+	b.WriteString("\n")
 	return b.String()
 }
 

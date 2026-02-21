@@ -10,6 +10,7 @@ Core
   recall man                       Show this command reference
   recall config                    Interactive config/doc editor
   recall context                   Print context snapshot (context + summaries + docs)
+  recall doctor                    Run health checks (project/db/summarizer)
   recall mcp                       Run MCP server over stdio
   recall export                    Export recall data to zip
   recall import <zipfile>          Import recall data from zip
