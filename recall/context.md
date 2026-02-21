@@ -13,8 +13,12 @@ AI agents lose context at compaction boundaries and between sessions. Existing w
 Recall stores data in a `.recall/` directory in the project root containing:
 
 - `recall.db` — SQLite database (excluded from git)
-- `config.json` — project configuration
+- `config.json` — project configuration (`project_name`, `summary_threshold`)
 - `*.md` files — human and agent readable context docs (tracked in git)
+
+Recall bootstraps `.recall/` automatically on first write operation (for example, `thought add`), using:
+- `project_name` defaulted from the current folder name
+- `summary_threshold` defaulted to `10`
 
 ### Schema
 ```sql
@@ -39,7 +43,7 @@ CREATE TABLE summaries (
 
 ## Auto-Summarization
 
-When `thought add` is called and unsummarized thought count exceeds `SummaryThreshold` (default 10), Recall uses the LLM to generates a summary. Each summary line references the originating thought ID in the format `[#id]`. Example:
+When `thought add` is called and unsummarized thought count exceeds `SummaryThreshold` (default 10), Recall triggers summarization. Recall is designed to work with the active agent runtime (Claude Code, Codex, Cursor, etc.) rather than storing provider API keys in project config. Each summary line references the originating thought ID in the format `[#id]`. Example:
 ```
 ## Summary [2025-02-20] (through thought #10)
 - [#3] Decided to use SQLite for local-first simplicity
@@ -49,7 +53,7 @@ When `thought add` is called and unsummarized thought count exceeds `SummaryThre
 
 ## Standard Docs
 
-Recall manages a set of standard `.md` files that agents can read for project context. Docs are opt-in — `recall init` runs a questionnaire and creates relevant ones. Example docs:
+Recall manages a set of standard `.md` files that agents can read for project context. Docs are opt-in and can be created/managed through doc commands. Example docs:
 
 - `project-overview.md`
 - `architecture.md`
@@ -64,7 +68,6 @@ Custom doc names are also supported.
 
 ## CLI Commands
 ```
-recall init                      # questionnaire → config + relevant docs
 recall status                    # thought count, summary count, doc count
 recall man                       # full command reference
 
@@ -85,6 +88,8 @@ recall export                    # outputs recall-export-[date].zip
 recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values
 ```
+
+Note: setup is auto-bootstrapped on first write command; an interactive `recall init` flow is intentionally not required in the current design.
 
 ## MCP Tools
 
@@ -139,8 +144,6 @@ Projects using Recall should include a `CLAUDE.md` at the project root instructi
 2. Log update messages after each prompt as a thought `recall thought add`
 3. Use MCP tools when available (`context_get` first on session start)
 4. Read relevant docs via `recall doc list` then `recall doc get <name>`
-
-`recall init` should auto-generate and offer to write this `CLAUDE.md` snippet.
 
 ## Build
 ```
