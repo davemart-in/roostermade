@@ -2,12 +2,28 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 
 	_ "modernc.org/sqlite"
 )
 
 func Open(path string) (*sql.DB, error) {
-	return sql.Open("sqlite", path)
+	conn, err := sql.Open("sqlite", path)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := conn.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("enable foreign keys: %w", err)
+	}
+
+	if err := InitSchema(conn); err != nil {
+		conn.Close()
+		return nil, err
+	}
+
+	return conn, nil
 }
 
 func InitSchema(db *sql.DB) error {

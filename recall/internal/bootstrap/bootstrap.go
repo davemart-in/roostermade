@@ -74,7 +74,7 @@ func ensureDB(projectRoot string) error {
 	}
 	defer conn.Close()
 
-	return db.InitSchema(conn)
+	return nil
 }
 
 func ensureDBGitignore(projectRoot string) error {
