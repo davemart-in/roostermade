@@ -49,7 +49,7 @@ recall init
   - Summary threshold (default: 10)
   - Summarizer provider choice (auto-detected/recommended)
   - Context questions to build `.recall/context.md`
-  - Suggested docs to create (interactive)
+  - Core docs to include (all default yes): `architecture.md`, `design.md`, `soul.md`
 
 After init, start capturing thoughts:
 

@@ -3,6 +3,7 @@ package docs
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/roostermade/recall/internal/config"
@@ -124,5 +125,30 @@ func TestListRegisteredIncludesMissingMarker(t *testing.T) {
 	}
 	if entries[1].Filename != "missing.md" || !entries[1].Missing {
 		t.Fatalf("unexpected second entry: %#v", entries[1])
+	}
+}
+
+func TestKnownDocBasesAreCoreThree(t *testing.T) {
+	got := KnownDocBases()
+	want := []string{"architecture", "design", "soul"}
+	if len(got) != len(want) {
+		t.Fatalf("unexpected known docs count: got %d want %d (%v)", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("unexpected known docs ordering: got %v want %v", got, want)
+		}
+	}
+}
+
+func TestTemplateForSoulIsStructured(t *testing.T) {
+	template := TemplateFor("soul")
+	if template == "" {
+		t.Fatal("expected non-empty soul template")
+	}
+	for _, section := range []string{"## Principles", "## Personality", "## Non-Negotiables", "## Anti-Goals"} {
+		if !strings.Contains(template, section) {
+			t.Fatalf("expected soul template to include %q", section)
+		}
 	}
 }

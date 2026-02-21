@@ -12,24 +12,14 @@ import (
 )
 
 var knownDocTitles = map[string]string{
-	"project-overview": "Project Overview",
-	"architecture":     "Architecture",
-	"tech-stack":       "Tech Stack",
-	"design":           "Design",
-	"api":              "API",
-	"mcp":              "MCP",
-	"auth":             "Auth",
-	"principles":       "Principles",
+	"architecture": "Architecture",
+	"design":       "Design",
+	"soul":         "Soul",
 }
 var knownDocOrder = []string{
-	"project-overview",
 	"architecture",
-	"tech-stack",
 	"design",
-	"api",
-	"mcp",
-	"auth",
-	"principles",
+	"soul",
 }
 
 const ContextFilename = "context.md"
@@ -93,12 +83,70 @@ func KnownDocBases() []string {
 }
 
 func TemplateFor(base string) string {
-	title, ok := knownDocTitles[base]
-	if !ok {
+	switch base {
+	case "architecture":
+		return `# Architecture
+
+## System Overview
+Describe the system at a high level.
+
+## Tech Stack
+List core languages, frameworks, and infrastructure choices.
+
+## Data Model / DB Structure
+Describe key tables/entities and relationships.
+
+## File Structure
+Describe major directories and ownership boundaries.
+
+## API Endpoints / Contracts
+Document important interfaces and payload shapes.
+
+## MCP Spec
+Describe MCP tools, inputs, and outputs.
+
+## Auth Spec
+Describe auth assumptions, flows, and boundaries.
+
+## Constraints
+List non-negotiable constraints and tradeoffs.
+`
+	case "design":
+		return `# Design
+
+## Visual Direction
+Describe desired look and feel.
+
+## UX Principles
+Describe interaction and navigation principles.
+
+## Interaction Patterns
+Describe key user flows and screen patterns.
+
+## Accessibility Expectations
+Define accessibility requirements and constraints.
+
+## Responsive Behavior
+Describe behavior across desktop/mobile breakpoints.
+`
+	case "soul":
+		return `# Soul
+
+## Principles
+List enduring project principles.
+
+## Personality
+Describe tone, voice, and character.
+
+## Non-Negotiables
+Define strict do/don't constraints.
+
+## Anti-Goals
+Document what this project should not become.
+`
+	default:
 		return ""
 	}
-
-	return "# " + title + "\n\nDescribe this area for future agent context.\n"
 }
 
 func DocPath(projectRoot, filename string) string {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,7 +13,6 @@ import (
 	"github.com/roostermade/recall/internal/config"
 	"github.com/roostermade/recall/internal/docs"
 	"github.com/roostermade/recall/internal/summarizer"
-	"github.com/roostermade/recall/internal/summary"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +44,7 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
-			selectedDocs, err := resolveSelectedDocs(reader, out, errOut, cfg, contextText)
+			selectedDocs, err := resolveSelectedDocs(reader, out)
 			if err != nil {
 				return err
 			}
@@ -178,29 +176,8 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 func resolveSelectedDocs(
 	reader *bufio.Reader,
 	out io.Writer,
-	errOut io.Writer,
-	cfg config.Config,
-	contextText string,
 ) ([]string, error) {
 	knownDocs := docs.KnownDocBases()
-	recommended := []string{}
-
-	if strings.TrimSpace(os.Getenv("RECALL_SUMMARIZER_CMD")) != "" || strings.TrimSpace(cfg.SummarizerCmd) != "" {
-		recs, err := recommendDocs(contextText, knownDocs, cfg.SummarizerCmd)
-		if err != nil {
-			fmt.Fprintf(errOut, "warning: failed to recommend docs via LLM: %v\n", err)
-		} else {
-			recommended = recs
-			if len(recommended) > 0 {
-				fmt.Fprintf(out, "recommended docs: %s\n", strings.Join(recommended, ", "))
-			}
-		}
-	}
-
-	recommendedSet := make(map[string]bool, len(recommended))
-	for _, base := range recommended {
-		recommendedSet[base] = true
-	}
 
 	selected := make([]string, 0, len(knownDocs))
 	for _, base := range knownDocs {
@@ -208,7 +185,7 @@ func resolveSelectedDocs(
 			reader,
 			out,
 			fmt.Sprintf("Include %s.md?", base),
-			recommendedSet[base],
+			true,
 		)
 		if err != nil {
 			return nil, err
@@ -221,54 +198,22 @@ func resolveSelectedDocs(
 	return selected, nil
 }
 
-func recommendDocs(contextText string, knownDocs []string, configuredCmd string) ([]string, error) {
-	prompt := "Based on this project context, recommend helpful docs from this allowed list only:\n" +
-		strings.Join(knownDocs, ", ") + "\n\n" +
-		"Return only a comma-separated list of slugs from the allowed list.\n\n" +
-		"Context:\n" + contextText
-
-	raw, err := summary.RunSummarizerCommandWith(configuredCmd, prompt)
-	if err != nil {
-		return nil, err
-	}
-
-	knownSet := make(map[string]bool, len(knownDocs))
-	for _, d := range knownDocs {
-		knownSet[d] = true
-	}
-
-	tokenRe := regexp.MustCompile(`[a-z][a-z-]+`)
-	tokens := tokenRe.FindAllString(strings.ToLower(raw), -1)
-	tokenSet := make(map[string]bool, len(tokens))
-	for _, token := range tokens {
-		if knownSet[token] {
-			tokenSet[token] = true
-		}
-	}
-
-	out := make([]string, 0, len(knownDocs))
-	for _, d := range knownDocs {
-		if tokenSet[d] {
-			out = append(out, d)
-		}
-	}
-	return out, nil
-}
-
 func buildDocDraftInteractive(reader *bufio.Reader, out io.Writer, base string, projectName string, contextText string) (string, error) {
 	title := docs.TitleFor(base)
-	answers := map[string]string{
-		"Objective":             promptLine(reader, out, fmt.Sprintf("%s objective", title)),
-		"In Scope":              promptLine(reader, out, fmt.Sprintf("%s in scope", title)),
-		"Out of Scope":          promptLine(reader, out, fmt.Sprintf("%s out of scope", title)),
-		"Constraints and Risks": promptLine(reader, out, fmt.Sprintf("%s constraints/risks", title)),
-		"Acceptance Criteria":   promptLine(reader, out, fmt.Sprintf("%s acceptance criteria", title)),
-		"Open Questions":        promptLine(reader, out, fmt.Sprintf("%s open questions", title)),
+	contextMap := parseContextSections(contextText)
+	sections := docSectionsFor(base, contextMap)
+	answers := make(map[string]string, len(sections))
+	for _, section := range sections {
+		label := section.Title
+		if section.Prompt != "" {
+			label = section.Prompt
+		}
+		answers[section.Title] = promptWithDefaultLine(reader, out, label, section.Default)
 	}
 
 	refinements := make([]string, 0)
 	for {
-		draft := renderDocDraft(title, projectName, contextText, answers, refinements)
+		draft := renderDocDraft(title, projectName, contextText, sections, answers, refinements)
 		fmt.Fprintf(out, "\n--- Draft Preview: %s ---\n%s\n--- End Draft ---\n", base+".md", draft)
 
 		ok, err := promptYesNo(reader, out, "Is this satisfactory?", true)
@@ -286,22 +231,22 @@ func buildDocDraftInteractive(reader *bufio.Reader, out io.Writer, base string, 
 	}
 }
 
-func renderDocDraft(title, projectName, contextText string, answers map[string]string, refinements []string) string {
+func renderDocDraft(
+	title,
+	projectName,
+	contextText string,
+	sections []docSection,
+	answers map[string]string,
+	refinements []string,
+) string {
 	var b strings.Builder
 	b.WriteString("# " + title + "\n\n")
 	b.WriteString("Project: " + strings.TrimSpace(projectName) + "\n\n")
 	b.WriteString("## Context\n")
 	b.WriteString(strings.TrimSpace(contextText) + "\n\n")
-	for _, section := range []string{
-		"Objective",
-		"In Scope",
-		"Out of Scope",
-		"Constraints and Risks",
-		"Acceptance Criteria",
-		"Open Questions",
-	} {
-		b.WriteString("## " + section + "\n")
-		val := strings.TrimSpace(answers[section])
+	for _, section := range sections {
+		b.WriteString("## " + section.Title + "\n")
+		val := strings.TrimSpace(answers[section.Title])
 		if val == "" {
 			val = "TBD."
 		}
@@ -315,6 +260,108 @@ func renderDocDraft(title, projectName, contextText string, answers map[string]s
 		b.WriteString("\n")
 	}
 	return b.String()
+}
+
+type docSection struct {
+	Title   string
+	Prompt  string
+	Default string
+}
+
+func docSectionsFor(base string, contextMap map[string]string) []docSection {
+	switch base {
+	case "architecture":
+		return []docSection{
+			{
+				Title:   "System Overview",
+				Prompt:  "Architecture system overview",
+				Default: combineNonEmpty(contextMap["Problem"], contextMap["Goals"]),
+			},
+			{Title: "Tech Stack", Prompt: "Architecture tech stack", Default: contextMap["Architecture Notes"]},
+			{Title: "Data Model / DB Structure", Prompt: "Architecture data model / DB structure", Default: "TBD."},
+			{Title: "File Structure", Prompt: "Architecture file structure", Default: "TBD."},
+			{Title: "API Endpoints / Contracts", Prompt: "Architecture API endpoints / contracts", Default: "TBD."},
+			{Title: "MCP Spec", Prompt: "Architecture MCP spec", Default: "TBD."},
+			{Title: "Auth Spec", Prompt: "Architecture auth spec", Default: "TBD."},
+			{Title: "Constraints", Prompt: "Architecture constraints", Default: combineNonEmpty(contextMap["Testing Expectations"], contextMap["Risks"])},
+		}
+	case "design":
+		return []docSection{
+			{Title: "Visual Direction", Prompt: "Design visual direction", Default: contextMap["Goals"]},
+			{Title: "UX Principles", Prompt: "Design UX principles", Default: contextMap["Audience"]},
+			{Title: "Interaction Patterns", Prompt: "Design interaction patterns", Default: contextMap["Problem"]},
+			{Title: "Accessibility Expectations", Prompt: "Design accessibility expectations", Default: contextMap["Testing Expectations"]},
+			{Title: "Responsive Behavior", Prompt: "Design responsive behavior", Default: "TBD."},
+		}
+	case "soul":
+		return []docSection{
+			{Title: "Principles", Prompt: "Soul principles", Default: contextMap["Goals"]},
+			{Title: "Personality", Prompt: "Soul personality", Default: contextMap["Audience"]},
+			{Title: "Non-Negotiables", Prompt: "Soul non-negotiables", Default: combineNonEmpty(contextMap["Architecture Notes"], contextMap["Risks"])},
+			{Title: "Anti-Goals", Prompt: "Soul anti-goals", Default: contextMap["Problem"]},
+		}
+	default:
+		return []docSection{
+			{Title: "Objective", Prompt: "Objective", Default: contextMap["Goals"]},
+			{Title: "In Scope", Prompt: "In Scope", Default: "TBD."},
+			{Title: "Out of Scope", Prompt: "Out of Scope", Default: "TBD."},
+			{Title: "Constraints and Risks", Prompt: "Constraints and Risks", Default: contextMap["Risks"]},
+			{Title: "Acceptance Criteria", Prompt: "Acceptance Criteria", Default: contextMap["Testing Expectations"]},
+			{Title: "Open Questions", Prompt: "Open Questions", Default: "TBD."},
+		}
+	}
+}
+
+func parseContextSections(contextText string) map[string]string {
+	out := map[string]string{}
+	current := ""
+	var body strings.Builder
+
+	flush := func() {
+		if current == "" {
+			return
+		}
+		value := strings.TrimSpace(body.String())
+		if value == "" {
+			value = "TBD."
+		}
+		out[current] = value
+		body.Reset()
+	}
+
+	lines := strings.Split(contextText, "\n")
+	for _, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if strings.HasPrefix(line, "## ") {
+			flush()
+			current = strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			continue
+		}
+		if current == "" {
+			continue
+		}
+		if body.Len() > 0 {
+			body.WriteString("\n")
+		}
+		body.WriteString(raw)
+	}
+	flush()
+	return out
+}
+
+func combineNonEmpty(values ...string) string {
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" || strings.EqualFold(trimmed, "TBD.") {
+			continue
+		}
+		parts = append(parts, trimmed)
+	}
+	if len(parts) == 0 {
+		return "TBD."
+	}
+	return strings.Join(parts, "\n\n")
 }
 
 func buildContextFromQuestions(reader *bufio.Reader, out io.Writer) string {
@@ -430,6 +477,23 @@ func promptLine(reader *bufio.Reader, out io.Writer, label string) string {
 		return ""
 	}
 	return strings.TrimSpace(raw)
+}
+
+func promptWithDefaultLine(reader *bufio.Reader, out io.Writer, label, def string) string {
+	trimmedDefault := strings.TrimSpace(def)
+	if trimmedDefault == "" {
+		trimmedDefault = "TBD."
+	}
+	fmt.Fprintf(out, "%s [%s]: ", label, trimmedDefault)
+	raw, err := reader.ReadString('\n')
+	if err != nil {
+		return trimmedDefault
+	}
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return trimmedDefault
+	}
+	return value
 }
 
 func fileExistsAndNonEmpty(path string) (bool, bool, error) {
