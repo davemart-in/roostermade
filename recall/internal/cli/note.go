@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -26,6 +27,7 @@ func newNoteCmd() *cobra.Command {
 		newNoteAddCmd(),
 		newNoteListCmd(),
 		newNoteGetCmd(),
+		newNoteDeleteCmd(),
 		newNoteSearchCmd(),
 	)
 
@@ -37,11 +39,23 @@ func newNoteAddCmd() *cobra.Command {
 	var model string
 
 	cmd := &cobra.Command{
-		Use:   `add "<content>"`,
+		Use:   `add [<content>]`,
 		Short: "Add a note",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			content := strings.TrimSpace(args[0])
+			content := ""
+			if len(args) == 1 {
+				content = strings.TrimSpace(args[0])
+			} else {
+				if isInteractiveInput(cmd.InOrStdin()) {
+					return errors.New("note content cannot be empty (provide an argument or pipe stdin)")
+				}
+				data, err := io.ReadAll(cmd.InOrStdin())
+				if err != nil {
+					return err
+				}
+				content = strings.TrimSpace(string(data))
+			}
 			if content == "" {
 				return errors.New("note content cannot be empty")
 			}
@@ -97,6 +111,40 @@ func newNoteAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&model, "model", "", "Model used for this note")
 
 	return cmd
+}
+
+func newNoteDeleteCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "delete <id>",
+		Short: "Delete a note by id",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id, err := strconv.ParseInt(args[0], 10, 64)
+			if err != nil || id <= 0 {
+				return fmt.Errorf("invalid note id: %q", args[0])
+			}
+
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+
+			store, _, closeDB, err := openStore(cwd)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+
+			if err := store.DeleteNote(id); errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("note %d not found", id)
+			} else if err != nil {
+				return err
+			}
+
+			cmd.Printf("deleted note #%d\n", id)
+			return nil
+		},
+	}
 }
 
 func newNoteListCmd() *cobra.Command {

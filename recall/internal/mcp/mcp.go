@@ -212,6 +212,35 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 
 	srv.AddTool(
 		mcp.NewTool(
+			"note_delete",
+			mcp.WithDescription("Delete a note by id"),
+			mcp.WithNumber("id", mcp.Required(), mcp.Description("Note id")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_ = ctx
+			id, err := request.RequireInt("id")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			if id <= 0 {
+				return mcp.NewToolResultError(fmt.Sprintf("invalid note id: %d", id)), nil
+			}
+
+			if err := store.DeleteNote(int64(id)); errors.Is(err, sql.ErrNoRows) {
+				return mcp.NewToolResultError(fmt.Sprintf("note %d not found", id)), nil
+			} else if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("delete note: %v", err)), nil
+			}
+
+			return mcp.NewToolResultStructuredOnly(map[string]any{
+				"deleted": true,
+				"id":      id,
+			}), nil
+		},
+	)
+
+	srv.AddTool(
+		mcp.NewTool(
 			"summary_add",
 			mcp.WithDescription("Summarize unsummarized notes"),
 		),

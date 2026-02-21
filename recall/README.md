@@ -55,9 +55,10 @@ recall note list
 
 ### Notes
 
-- `recall note add "<text>"`
+- `recall note add "<text>"` (or pipe text via stdin)
 - `recall note list [--limit <n>]`
 - `recall note get <id>`
+- `recall note delete <id>`
 - `recall note search <query> [--limit <n>]`
 
 ### Summaries
@@ -135,7 +136,7 @@ claude mcp list
 ```
 
 MCP tools:
-- `note_add`, `note_list`, `note_get`, `note_search`
+- `note_add`, `note_list`, `note_get`, `note_delete`, `note_search`
 - `summary_add`, `summary_list`, `summary_search`
 - `context_get`, `context_snapshot`
 - `doc_get`, `doc_list`

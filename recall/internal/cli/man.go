@@ -18,10 +18,12 @@ Core
   recall import <zipfile>          Import recall data from zip
 
 Note
-  recall note add "<content>" [--llm <provider>] [--model <model>]
+  recall note add [<content>] [--llm <provider>] [--model <model>]
                                    Add a note
+  recall note add                  Read note content from stdin when no arg provided
   recall note list [--limit <n>]   List notes
   recall note get <id>             Get note details
+  recall note delete <id>          Delete a note
   recall note search <query> [--limit <n>]
                                    Search notes by content
 
