@@ -67,6 +67,11 @@ recall summary add
 - Prompts for provider choice (with a recommended default)
 - Generates an executable wrapper in `.recall/bin/`
 - Saves command in `.recall/config.json` as `summarizer_cmd`
+- Offers to create/update provider instruction docs at project root (HIGHLY recommended):
+  - Claude: `CLAUDE.md`
+  - Codex: `AGENTS.md`
+  - Cursor: `CURSOR.md`
+  - Recall manages an idempotent guidance block in these files and preserves non-managed content.
 
 No manual `chmod +x` or shell `export` is required for normal setup.
 
@@ -92,7 +97,7 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall config`  
   Interactive config/doc editor
 - `recall context`  
-  Print `.recall/context.md`
+  Print assembled context bundle (core docs + extras)
 - `recall export`  
   Export data to `recall-export-[YYYY-MM-DD].zip`
 - `recall import <zipfile>`  
@@ -117,6 +122,34 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall doc add <name>`
 - `recall doc edit <name>`
 - `recall doc list`
+
+### Context Output
+
+`recall context` prints project context docs in this order:
+
+1. `.recall/context.md`
+2. `.recall/architecture.md`
+3. `.recall/design.md`
+4. `.recall/soul.md`
+5. additional registered docs from config
+
+By default, output is capped at 16,000 chars for safety.
+
+- `--full` disables truncation and prints everything.
+- `--max-chars <n>` overrides the default cap.
+
+Examples:
+
+```bash
+recall context
+recall context --full
+recall context --max-chars 8000
+```
+
+If `.recall/context.md` is missing:
+
+- interactive runs prompt to recreate it via guided questions
+- non-interactive runs fail with a clear remediation message (`recall init`)
 
 ## MCP Setup
 

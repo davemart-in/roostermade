@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/roostermade/recall/internal/agentdocs"
 	"github.com/roostermade/recall/internal/bootstrap"
 	"github.com/roostermade/recall/internal/config"
 	"github.com/roostermade/recall/internal/docs"
@@ -143,6 +144,9 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 				provider,
 			)
 		}
+	}
+	if err := configureAgentInstructionDocs(reader, out, errOut, projectRoot, provider); err != nil {
+		return cfg, "", err
 	}
 
 	contextDraft := buildContextFromQuestions(reader, out)
@@ -404,6 +408,117 @@ func promptWithDefault(reader *bufio.Reader, out io.Writer, label string, def st
 		}
 		return value, nil
 	}
+}
+
+func configureAgentInstructionDocs(
+	reader *bufio.Reader,
+	out io.Writer,
+	errOut io.Writer,
+	projectRoot string,
+	primaryProvider string,
+) error {
+	if primaryProvider == summarizer.ProviderNone {
+		fmt.Fprintln(
+			errOut,
+			"note: no primary provider selected; skipping HIGHLY recommended agent instruction doc setup",
+		)
+		return nil
+	}
+
+	if err := configureInstructionFileForProvider(
+		reader,
+		out,
+		projectRoot,
+		primaryProvider,
+		true,
+	); err != nil {
+		return err
+	}
+
+	for _, provider := range []string{summarizer.ProviderClaude, summarizer.ProviderCodex, summarizer.ProviderCursor} {
+		if provider == primaryProvider {
+			continue
+		}
+		filename, err := agentdocs.TargetFileForProvider(provider)
+		if err != nil {
+			return err
+		}
+
+		include, err := promptYesNo(
+			reader,
+			out,
+			fmt.Sprintf("Also configure %s for %s?", filename, provider),
+			false,
+		)
+		if err != nil {
+			return err
+		}
+		if !include {
+			continue
+		}
+		if err := configureInstructionFileForProvider(
+			reader,
+			out,
+			projectRoot,
+			provider,
+			false,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func configureInstructionFileForProvider(
+	reader *bufio.Reader,
+	out io.Writer,
+	projectRoot string,
+	provider string,
+	isPrimary bool,
+) error {
+	filename, err := agentdocs.TargetFileForProvider(provider)
+	if err != nil {
+		return err
+	}
+	exists, err := agentdocs.FileExists(projectRoot, filename)
+	if err != nil {
+		return err
+	}
+
+	label := ""
+	switch {
+	case exists && isPrimary:
+		label = fmt.Sprintf(
+			"Update %s with Recall guidance block? (HIGHLY recommended)",
+			filename,
+		)
+	case exists && !isPrimary:
+		label = fmt.Sprintf("Update %s with Recall guidance block?", filename)
+	case !exists && isPrimary:
+		label = fmt.Sprintf(
+			"Create %s with Recall guidance block? (HIGHLY recommended)",
+			filename,
+		)
+	default:
+		label = fmt.Sprintf("Create %s with Recall guidance block?", filename)
+	}
+
+	confirm, err := promptYesNo(reader, out, label, true)
+	if err != nil {
+		return err
+	}
+	if !confirm {
+		fmt.Fprintf(out, "skipped %s\n", filename)
+		return nil
+	}
+
+	action, err := agentdocs.EnsureRecallBlock(projectRoot, filename)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "%s %s\n", action, filename)
+	return nil
 }
 
 func promptProvider(reader *bufio.Reader, out io.Writer, def string) (string, error) {
