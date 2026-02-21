@@ -55,18 +55,7 @@ When `note add` is called and unsummarized note count exceeds `SummaryThreshold`
 
 ## Standard Docs
 
-Recall manages a set of standard `.md` files that agents can read for project context. During `recall init`, Recall can recommend docs from context and then run interactive planning Q&A per selected doc. Existing non-empty docs are not overwritten in init update mode. Example docs:
-
-- `project-overview.md`
-- `architecture.md`
-- `tech-stack.md`
-- `design.md`
-- `api.md`
-- `mcp.md`
-- `auth.md`
-- `principles.md`
-
-Custom doc names are also supported.
+`context.md` is the canonical project memory doc loaded by `recall context`. It includes architecture/design/soul-style sections directly. Optional extra docs can still be added via `recall doc add` and managed with `recall doc list` / `recall doc edit`.
 
 ## Init Workflow
 
@@ -75,15 +64,15 @@ Custom doc names are also supported.
 1. Ensures `.recall/` base artifacts exist
 2. Prompts for editable project settings (project name + summary threshold)
 3. Captures guided project context into `.recall/context.md` (keeps existing file if already present)
-4. Recommends docs via `RECALL_SUMMARIZER_CMD` when available (falls back to manual selection)
-5. Builds selected doc plans through interactive Q&A until satisfactory
-6. Registers docs in config and sets `initialized=true`
+4. Configures summarizer wrapper command for selected provider
+5. Optionally creates/updates provider instruction files with Recall guidance block
+6. Registers `context.md` in config and sets `initialized=true`
 
 ## CLI Commands
 ```
 recall status                    # note count, summary count, doc count
 recall man                       # full command reference
-recall init                      # guided setup + context/doc planning
+recall init                      # guided setup + context capture
 
 recall note add "<content>" [--llm claude] [--model claude-sonnet-4-6]
 recall note list
@@ -97,7 +86,7 @@ recall doc add <name>            # create and register a doc
 recall doc edit <name>           # open in $EDITOR
 recall doc list
 
-recall context [--since <id>]    # full context dump: summaries + docs + recent notes
+recall context                   # print .recall/context.md
 recall export                    # outputs recall-export-[date].zip
 recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values

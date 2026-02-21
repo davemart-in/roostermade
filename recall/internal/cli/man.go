@@ -5,11 +5,11 @@ import "github.com/spf13/cobra"
 const manText = `Recall Command Reference
 
 Core
-  recall init                      Guided setup + context/doc planning
+  recall init                      Guided setup + context capture
   recall status                    Show note/summary/doc counts
   recall man                       Show this command reference
   recall config                    Interactive config and doc selection editor
-  recall context                   Print assembled context bundle (core docs + extras)
+  recall context                   Print .recall/context.md
   recall mcp                       Run MCP server over stdio
   recall export                    Export recall data to zip
   recall import <zipfile>          Import recall data from zip

@@ -49,7 +49,6 @@ recall init
   - Summary threshold (default: 10)
   - Summarizer provider choice (auto-detected/recommended)
   - Context questions to build `.recall/context.md`
-  - Core docs to include (all default yes): `architecture.md`, `design.md`, `soul.md`
 
 After init, start capturing notes:
 
@@ -88,11 +87,11 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 
 ### Core
 
-- `recall init` - Guided setup + context/doc planning
+- `recall init` - Guided setup + context capture
 - `recall status` - Show note/summary/doc counts
 - `recall man` - Print command reference
 - `recall config` - Interactive config/doc editor
-- `recall context` - Print assembled context bundle (core docs + extras)
+- `recall context` - Print `.recall/context.md`
 - `recall export` - Export data to `recall-export-[YYYY-MM-DD].zip`
 - `recall import <zipfile>` - Import recall data from an export zip
 - `recall mcp` - Run MCP server over stdio
@@ -119,13 +118,7 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 
 ### Context Output
 
-`recall context` prints project context docs in this order:
-
-1. `.recall/context.md`
-2. `.recall/architecture.md`
-3. `.recall/design.md`
-4. `.recall/soul.md`
-5. additional registered docs from config
+`recall context` prints `.recall/context.md`.
 
 By default, output is capped at 16,000 chars for safety.
 

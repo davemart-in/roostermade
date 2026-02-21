@@ -95,7 +95,7 @@ func BuildRecallBlock() string {
 		"<!-- RECALL_MANAGED_BLOCK_START -->\n" +
 			"## Recall Integration\n\n" +
 			"Use Recall for persistent project memory across sessions and context compaction.\n" +
-			"At session start run `recall context` (loads core docs plus registered project docs).\n" +
+			"At session start run `recall context` (loads `.recall/context.md`).\n" +
 			"After each successful task, run `recall note add \"<what changed or was decided>\"`.\n" +
 			"Use `recall summary list` / `recall summary get <id>` for compressed history.\n" +
 			"General tools remain available anytime; if MCP is enabled, Recall MCP tools are available too.\n" +

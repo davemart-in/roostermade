@@ -19,7 +19,6 @@ const defaultContextMaxChars = 16000
 type contextPart struct {
 	filename string
 	text     string
-	core     bool
 }
 
 func newContextCmd() *cobra.Command {
@@ -28,7 +27,7 @@ func newContextCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "context",
-		Short: "Print assembled project context bundle",
+		Short: "Print project context",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
@@ -45,7 +44,7 @@ func newContextCmd() *cobra.Command {
 				return err
 			}
 
-			parts, err := buildContextParts(cwd, cfg)
+			parts, err := buildContextParts(cwd)
 			if err != nil {
 				return err
 			}
@@ -122,51 +121,17 @@ func ensureContextDoc(cmd *cobra.Command, projectRoot string, cfg config.Config)
 	return cfg, nil
 }
 
-func buildContextParts(projectRoot string, cfg config.Config) ([]contextPart, error) {
-	core := []string{
-		docs.ContextFilename,
-		"architecture.md",
-		"design.md",
-		"soul.md",
+func buildContextParts(projectRoot string) ([]contextPart, error) {
+	data, err := os.ReadFile(docs.DocPath(projectRoot, docs.ContextFilename))
+	if err != nil {
+		return nil, err
 	}
-
-	extras := make([]string, 0, len(cfg.Docs))
-	isCore := map[string]bool{}
-	for _, name := range core {
-		isCore[name] = true
-	}
-	for _, filename := range cfg.Docs {
-		if !isCore[filename] {
-			extras = append(extras, filename)
-		}
-	}
-
-	ordered := append(core, extras...)
-	parts := make([]contextPart, 0, len(ordered))
-	for _, filename := range ordered {
-		data, err := os.ReadFile(docs.DocPath(projectRoot, filename))
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				parts = append(parts, contextPart{
-					filename: filename,
-					text:     fmt.Sprintf("--- skipped .recall/%s (not found) ---\n\n", filename),
-					core:     isCore[filename],
-				})
-				continue
-			}
-			return nil, err
-		}
-		parts = append(parts, contextPart{
-			filename: filename,
-			text: renderContextSection(
-				filename,
-				string(data),
-			),
-			core: isCore[filename],
-		})
-	}
-
-	return parts, nil
+	return []contextPart{
+		{
+			filename: docs.ContextFilename,
+			text:     renderContextSection(docs.ContextFilename, string(data)),
+		},
+	}, nil
 }
 
 func renderContextSection(filename, body string) string {
@@ -205,9 +170,7 @@ func assembleContextOutput(parts []contextPart, full bool, maxChars int) (string
 			continue
 		}
 
-		if part.core {
-			b.WriteString(truncateByRunes(part.text, remaining))
-		}
+		b.WriteString(truncateByRunes(part.text, remaining))
 		truncated = true
 		break
 	}
