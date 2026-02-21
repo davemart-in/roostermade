@@ -14,6 +14,10 @@ import (
 const summarizerEnvVar = "RECALL_SUMMARIZER_CMD"
 
 func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
+	return GenerateAndStoreWithCommand(store, "")
+}
+
+func GenerateAndStoreWithCommand(store *db.Store, configuredCmd string) (db.Summary, bool, error) {
 	thoughts, err := store.ListUnsummarizedThoughts()
 	if err != nil {
 		return db.Summary{}, false, err
@@ -23,7 +27,7 @@ func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
 	}
 
 	prompt := buildPrompt(thoughts)
-	body, err := RunSummarizerCommand(prompt)
+	body, err := RunSummarizerCommandWith(configuredCmd, prompt)
 	if err != nil {
 		return db.Summary{}, false, err
 	}
@@ -38,9 +42,13 @@ func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
 }
 
 func RunSummarizerCommand(prompt string) (string, error) {
-	command := strings.TrimSpace(os.Getenv(summarizerEnvVar))
+	return RunSummarizerCommandWith("", prompt)
+}
+
+func RunSummarizerCommandWith(configuredCmd string, prompt string) (string, error) {
+	command := resolveSummarizerCommand(configuredCmd)
 	if command == "" {
-		return "", fmt.Errorf("%s is not set", summarizerEnvVar)
+		return "", fmt.Errorf("%s is not set and config has no summarizer_cmd", summarizerEnvVar)
 	}
 
 	cmd := exec.Command("sh", "-c", command)
@@ -65,6 +73,14 @@ func RunSummarizerCommand(prompt string) (string, error) {
 	}
 
 	return output, nil
+}
+
+func resolveSummarizerCommand(configuredCmd string) string {
+	fromEnv := strings.TrimSpace(os.Getenv(summarizerEnvVar))
+	if fromEnv != "" {
+		return fromEnv
+	}
+	return strings.TrimSpace(configuredCmd)
 }
 
 func buildPrompt(thoughts []db.Thought) string {

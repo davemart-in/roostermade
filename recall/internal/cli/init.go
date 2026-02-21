@@ -6,12 +6,14 @@ import (
 	"io"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/roostermade/recall/internal/bootstrap"
 	"github.com/roostermade/recall/internal/config"
 	"github.com/roostermade/recall/internal/docs"
+	"github.com/roostermade/recall/internal/summarizer"
 	"github.com/roostermade/recall/internal/summary"
 	"github.com/spf13/cobra"
 )
@@ -44,7 +46,7 @@ func newInitCmd() *cobra.Command {
 				return err
 			}
 
-			selectedDocs, err := resolveSelectedDocs(reader, out, errOut, contextText)
+			selectedDocs, err := resolveSelectedDocs(reader, out, errOut, cfg, contextText)
 			if err != nil {
 				return err
 			}
@@ -112,6 +114,39 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 	}
 	cfg.SummaryThreshold = summaryThreshold
 
+	availableProviders := summarizer.DetectAvailableProviders()
+	if len(availableProviders) > 0 {
+		fmt.Fprintf(out, "detected summarizer providers: %s\n", strings.Join(availableProviders, ", "))
+	} else {
+		fmt.Fprintln(out, "detected summarizer providers: none")
+	}
+	provider, err := promptProvider(reader, out, summarizer.RecommendedProvider())
+	if err != nil {
+		return cfg, "", err
+	}
+	switch provider {
+	case summarizer.ProviderNone:
+		cfg.SummarizerProvider = ""
+		cfg.SummarizerCmd = ""
+		fmt.Fprintln(out, "summarizer setup skipped")
+	default:
+		wrapperPath, err := summarizer.WriteWrapper(projectRoot, provider)
+		if err != nil {
+			return cfg, "", err
+		}
+		cfg.SummarizerProvider = provider
+		cfg.SummarizerCmd = wrapperPath
+		fmt.Fprintf(out, "configured summarizer provider: %s\n", provider)
+		fmt.Fprintf(out, "configured summarizer command: %s\n", wrapperPath)
+		if !slices.Contains(availableProviders, provider) {
+			fmt.Fprintf(
+				errOut,
+				"note: provider %s was not auto-detected; verify its prerequisites before summarizing\n",
+				provider,
+			)
+		}
+	}
+
 	contextDraft := buildContextFromQuestions(reader, out)
 	contextPath := docs.DocPath(projectRoot, docs.ContextFilename)
 	contextText := contextDraft
@@ -133,19 +168,25 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 
 	docs.RegisterDoc(&cfg, docs.ContextFilename)
 
-	if strings.TrimSpace(os.Getenv("RECALL_SUMMARIZER_CMD")) == "" {
-		fmt.Fprintln(errOut, "note: RECALL_SUMMARIZER_CMD not set; falling back to manual doc selection")
+	if strings.TrimSpace(os.Getenv("RECALL_SUMMARIZER_CMD")) == "" && strings.TrimSpace(cfg.SummarizerCmd) == "" {
+		fmt.Fprintln(errOut, "note: no summarizer command configured; falling back to manual doc selection")
 	}
 
 	return cfg, contextText, nil
 }
 
-func resolveSelectedDocs(reader *bufio.Reader, out io.Writer, errOut io.Writer, contextText string) ([]string, error) {
+func resolveSelectedDocs(
+	reader *bufio.Reader,
+	out io.Writer,
+	errOut io.Writer,
+	cfg config.Config,
+	contextText string,
+) ([]string, error) {
 	knownDocs := docs.KnownDocBases()
 	recommended := []string{}
 
-	if strings.TrimSpace(os.Getenv("RECALL_SUMMARIZER_CMD")) != "" {
-		recs, err := recommendDocs(contextText, knownDocs)
+	if strings.TrimSpace(os.Getenv("RECALL_SUMMARIZER_CMD")) != "" || strings.TrimSpace(cfg.SummarizerCmd) != "" {
+		recs, err := recommendDocs(contextText, knownDocs, cfg.SummarizerCmd)
 		if err != nil {
 			fmt.Fprintf(errOut, "warning: failed to recommend docs via LLM: %v\n", err)
 		} else {
@@ -180,13 +221,13 @@ func resolveSelectedDocs(reader *bufio.Reader, out io.Writer, errOut io.Writer, 
 	return selected, nil
 }
 
-func recommendDocs(contextText string, knownDocs []string) ([]string, error) {
+func recommendDocs(contextText string, knownDocs []string, configuredCmd string) ([]string, error) {
 	prompt := "Based on this project context, recommend helpful docs from this allowed list only:\n" +
 		strings.Join(knownDocs, ", ") + "\n\n" +
 		"Return only a comma-separated list of slugs from the allowed list.\n\n" +
 		"Context:\n" + contextText
 
-	raw, err := summary.RunSummarizerCommand(prompt)
+	raw, err := summary.RunSummarizerCommandWith(configuredCmd, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -315,6 +356,24 @@ func promptWithDefault(reader *bufio.Reader, out io.Writer, label string, def st
 			return def, nil
 		}
 		return value, nil
+	}
+}
+
+func promptProvider(reader *bufio.Reader, out io.Writer, def string) (string, error) {
+	for {
+		fmt.Fprintf(out, "Summarizer provider [%s] (claude/codex/cursor/none): ", def)
+		raw, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+		value := strings.TrimSpace(strings.ToLower(raw))
+		if value == "" {
+			value = def
+		}
+		if summarizer.IsValidProvider(value) {
+			return value, nil
+		}
+		fmt.Fprintf(out, "invalid provider: %s\n", value)
 	}
 }
 

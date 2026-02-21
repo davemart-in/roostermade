@@ -40,13 +40,13 @@ func newSummaryAddCmd() *cobra.Command {
 				return err
 			}
 
-			store, _, closeDB, err := openStore(cwd)
+			store, cfg, closeDB, err := openStore(cwd)
 			if err != nil {
 				return err
 			}
 			defer closeDB()
 
-			createdSummary, didSummarize, err := summary.GenerateAndStore(store)
+			createdSummary, didSummarize, err := summary.GenerateAndStoreWithCommand(store, cfg.SummarizerCmd)
 			if err != nil {
 				return err
 			}

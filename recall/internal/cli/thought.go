@@ -76,7 +76,7 @@ func newThoughtAddCmd() *cobra.Command {
 				return err
 			}
 			if unsummarizedCount > cfg.SummaryThreshold {
-				createdSummary, didSummarize, err := summary.GenerateAndStore(store)
+				createdSummary, didSummarize, err := summary.GenerateAndStoreWithCommand(store, cfg.SummarizerCmd)
 				if err != nil {
 					cmd.PrintErrf("warning: auto-summary failed: %v\n", err)
 				} else if didSummarize {

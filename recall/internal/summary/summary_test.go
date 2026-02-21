@@ -17,6 +17,18 @@ func TestRunSummarizerCommandRequiresEnvVar(t *testing.T) {
 	}
 }
 
+func TestRunSummarizerCommandWithUsesConfiguredCommand(t *testing.T) {
+	t.Setenv(summarizerEnvVar, "")
+
+	body, err := RunSummarizerCommandWith("printf '%s\\n' '- [#1] Used config command.'", "prompt")
+	if err != nil {
+		t.Fatalf("run summarizer command with configured command: %v", err)
+	}
+	if body != "- [#1] Used config command." {
+		t.Fatalf("unexpected summarizer body: %q", body)
+	}
+}
+
 func TestRunSummarizerCommandReturnsTrimmedStdout(t *testing.T) {
 	t.Setenv(summarizerEnvVar, "printf '%s\\n' '  - [#1] Did the thing.  '")
 
@@ -87,5 +99,34 @@ func TestGenerateAndStoreUsesUnsummarizedBatchAndStoresHighWaterMark(t *testing.
 	}
 	if unsummarizedCount != 0 {
 		t.Fatalf("expected 0 unsummarized thoughts, got %d", unsummarizedCount)
+	}
+}
+
+func TestGenerateAndStoreWithConfiguredCommand(t *testing.T) {
+	t.Setenv(summarizerEnvVar, "")
+
+	conn, err := db.Open(filepath.Join(t.TempDir(), "recall.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+
+	store := db.NewStore(conn)
+	if _, err := store.CreateThought("t1", nil, nil); err != nil {
+		t.Fatalf("create thought: %v", err)
+	}
+
+	createdSummary, didSummarize, err := GenerateAndStoreWithCommand(
+		store,
+		"printf '%s\\n' '- [#1] Summary from configured command.'",
+	)
+	if err != nil {
+		t.Fatalf("generate and store with configured command: %v", err)
+	}
+	if !didSummarize {
+		t.Fatal("expected didSummarize=true")
+	}
+	if strings.TrimSpace(createdSummary.Body) != "- [#1] Summary from configured command." {
+		t.Fatalf("unexpected summary body: %q", createdSummary.Body)
 	}
 }

@@ -50,7 +50,8 @@ func RunStdio(projectRoot string) error {
 	if err := bootstrap.RequireInitialized(projectRoot); err != nil {
 		return err
 	}
-	if _, err := config.Load(config.ConfigPath(projectRoot)); err != nil {
+	cfg, err := config.Load(config.ConfigPath(projectRoot))
+	if err != nil {
 		return err
 	}
 
@@ -62,12 +63,12 @@ func RunStdio(projectRoot string) error {
 
 	store := db.NewStore(conn)
 	srv := server.NewMCPServer(serverName, serverVersion)
-	registerTools(srv, projectRoot, store)
+	registerTools(srv, projectRoot, store, cfg)
 
 	return server.ServeStdio(srv)
 }
 
-func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store) {
+func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, cfg config.Config) {
 	srv.AddTool(
 		mcp.NewTool(
 			"thought_add",
@@ -100,17 +101,12 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store) {
 				"thought": toThoughtPayload(thought),
 			}
 
-			cfg, err := config.Load(config.ConfigPath(projectRoot))
-			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("load config: %v", err)), nil
-			}
-
 			unsummarizedCount, err := store.CountUnsummarizedThoughts()
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("count unsummarized thoughts: %v", err)), nil
 			}
 			if unsummarizedCount > cfg.SummaryThreshold {
-				createdSummary, didSummarize, err := summary.GenerateAndStore(store)
+				createdSummary, didSummarize, err := summary.GenerateAndStoreWithCommand(store, cfg.SummarizerCmd)
 				if err != nil {
 					result["auto_summary_error"] = err.Error()
 				} else if didSummarize {
@@ -186,7 +182,7 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store) {
 			_ = ctx
 			_ = request
 
-			createdSummary, didSummarize, err := summary.GenerateAndStore(store)
+			createdSummary, didSummarize, err := summary.GenerateAndStoreWithCommand(store, cfg.SummarizerCmd)
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("create summary: %v", err)), nil
 			}
