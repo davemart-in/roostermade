@@ -202,6 +202,22 @@ func (s *Store) CountUnsummarizedThoughts() (int, error) {
 	return count, nil
 }
 
+func (s *Store) CountThoughts() (int, error) {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM thoughts`).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (s *Store) CountSummaries() (int, error) {
+	var count int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM summaries`).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (s *Store) ListUnsummarizedThoughts() ([]Thought, error) {
 	rows, err := s.db.Query(
 		`SELECT id, content, llm, model, created_at FROM thoughts

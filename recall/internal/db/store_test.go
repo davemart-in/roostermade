@@ -239,3 +239,48 @@ func TestListUnsummarizedThoughtsUsesSummaryHighWaterMarkAndAscendingOrder(t *te
 		t.Fatalf("expected ascending unsummarized ids [3,4], got [%d,%d]", unsummarized[0].ID, unsummarized[1].ID)
 	}
 }
+
+func TestCountThoughtsAndSummaries(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "recall.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+
+	store := NewStore(conn)
+
+	thoughtCount, err := store.CountThoughts()
+	if err != nil {
+		t.Fatalf("count thoughts: %v", err)
+	}
+	summaryCount, err := store.CountSummaries()
+	if err != nil {
+		t.Fatalf("count summaries: %v", err)
+	}
+	if thoughtCount != 0 || summaryCount != 0 {
+		t.Fatalf("expected empty counts, got thoughts=%d summaries=%d", thoughtCount, summaryCount)
+	}
+
+	t1, err := store.CreateThought("t1", nil, nil)
+	if err != nil {
+		t.Fatalf("create thought t1: %v", err)
+	}
+	if _, err := store.CreateThought("t2", nil, nil); err != nil {
+		t.Fatalf("create thought t2: %v", err)
+	}
+	if _, err := store.CreateSummary(t1.ID, "s1"); err != nil {
+		t.Fatalf("create summary: %v", err)
+	}
+
+	thoughtCount, err = store.CountThoughts()
+	if err != nil {
+		t.Fatalf("count thoughts after insert: %v", err)
+	}
+	summaryCount, err = store.CountSummaries()
+	if err != nil {
+		t.Fatalf("count summaries after insert: %v", err)
+	}
+	if thoughtCount != 2 || summaryCount != 1 {
+		t.Fatalf("unexpected counts after insert, got thoughts=%d summaries=%d", thoughtCount, summaryCount)
+	}
+}
