@@ -142,7 +142,7 @@ MCP tools:
 
 ## If You See This Error
 
-Recall is not initialized in this project. Run `recall init` first.
+Recall is not initialized in this project.
 
 Run:
 
