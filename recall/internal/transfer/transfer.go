@@ -162,8 +162,11 @@ func ParseAndValidateManifest(data []byte) (Manifest, error) {
 	if manifest.SummaryCount < 0 {
 		return Manifest{}, errors.New("manifest summary_count must be >= 0")
 	}
-	if manifest.SummaryThreshold <= 0 {
-		return Manifest{}, errors.New("manifest summary_threshold must be > 0")
+	if manifest.SummaryThreshold < 0 {
+		return Manifest{}, errors.New("manifest summary_threshold must be >= 0")
+	}
+	if manifest.SummaryThreshold == 0 {
+		manifest.SummaryThreshold = config.DefaultSummaryThresh
 	}
 	if manifest.DocList == nil {
 		return Manifest{}, errors.New("manifest missing doc_list")

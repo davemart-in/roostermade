@@ -53,6 +53,24 @@ func TestParseAndValidateManifest(t *testing.T) {
 	}
 }
 
+func TestParseAndValidateManifestBackwardCompatThreshold(t *testing.T) {
+	raw := []byte(`{
+  "project_name":"p",
+  "export_date":"2026-02-21T10:00:00Z",
+  "note_count":1,
+  "summary_count":2,
+  "doc_list":["context.md"]
+}`)
+
+	manifest, err := ParseAndValidateManifest(raw)
+	if err != nil {
+		t.Fatalf("parse manifest: %v", err)
+	}
+	if manifest.SummaryThreshold != config.DefaultSummaryThresh {
+		t.Fatalf("expected default summary threshold %d, got %d", config.DefaultSummaryThresh, manifest.SummaryThreshold)
+	}
+}
+
 func TestValidateZipPath(t *testing.T) {
 	invalid := []string{"/abs", "../x", "a/b", "a\\b"}
 	for _, p := range invalid {

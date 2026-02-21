@@ -100,10 +100,15 @@ func newNoteAddCmd() *cobra.Command {
 }
 
 func newNoteListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List notes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if limit <= 0 {
+				return errors.New("limit must be greater than 0")
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
@@ -115,7 +120,7 @@ func newNoteListCmd() *cobra.Command {
 			}
 			defer closeDB()
 
-			notes, err := store.ListNotes(100, 0)
+			notes, err := store.ListNotes(limit, 0)
 			if err != nil {
 				return err
 			}
@@ -143,6 +148,8 @@ func newNoteListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of notes to return")
+	return cmd
 }
 
 func newNoteGetCmd() *cobra.Command {
@@ -191,11 +198,16 @@ func newNoteGetCmd() *cobra.Command {
 }
 
 func newNoteSearchCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search notes by content",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit <= 0 {
+				return errors.New("limit must be greater than 0")
+			}
+
 			query := strings.TrimSpace(args[0])
 			if query == "" {
 				return errors.New("query cannot be empty")
@@ -212,7 +224,7 @@ func newNoteSearchCmd() *cobra.Command {
 			}
 			defer closeDB()
 
-			notes, err := store.SearchNotes(query, 100, 0)
+			notes, err := store.SearchNotes(query, limit, 0)
 			if err != nil {
 				return err
 			}
@@ -239,6 +251,8 @@ func newNoteSearchCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of notes to return")
+	return cmd
 }
 
 func openStore(projectRoot string) (*db.Store, config.Config, func() error, error) {

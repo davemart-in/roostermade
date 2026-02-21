@@ -65,10 +65,15 @@ func newSummaryAddCmd() *cobra.Command {
 }
 
 func newSummaryListCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List summaries",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if limit <= 0 {
+				return errors.New("limit must be greater than 0")
+			}
+
 			cwd, err := os.Getwd()
 			if err != nil {
 				return err
@@ -80,7 +85,7 @@ func newSummaryListCmd() *cobra.Command {
 			}
 			defer closeDB()
 
-			summaries, err := store.ListSummaries(100, 0)
+			summaries, err := store.ListSummaries(limit, 0)
 			if err != nil {
 				return err
 			}
@@ -103,6 +108,8 @@ func newSummaryListCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of summaries to return")
+	return cmd
 }
 
 func newSummaryGetCmd() *cobra.Command {
@@ -146,11 +153,16 @@ func newSummaryGetCmd() *cobra.Command {
 }
 
 func newSummarySearchCmd() *cobra.Command {
-	return &cobra.Command{
+	var limit int
+	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search summaries by body",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit <= 0 {
+				return errors.New("limit must be greater than 0")
+			}
+
 			query := strings.TrimSpace(args[0])
 			if query == "" {
 				return errors.New("query cannot be empty")
@@ -167,7 +179,7 @@ func newSummarySearchCmd() *cobra.Command {
 			}
 			defer closeDB()
 
-			summaries, err := store.SearchSummaries(query, 100, 0)
+			summaries, err := store.SearchSummaries(query, limit, 0)
 			if err != nil {
 				return err
 			}
@@ -189,6 +201,8 @@ func newSummarySearchCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of summaries to return")
+	return cmd
 }
 
 func summarizePreview(body string, maxChars int) string {

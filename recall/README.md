@@ -56,16 +56,16 @@ recall note list
 ### Notes
 
 - `recall note add "<text>"`
-- `recall note list`
+- `recall note list [--limit <n>]`
 - `recall note get <id>`
-- `recall note search <query>`
+- `recall note search <query> [--limit <n>]`
 
 ### Summaries
 
 - `recall summary add` (generate summary for unsummarized notes)
-- `recall summary list`
+- `recall summary list [--limit <n>]`
 - `recall summary get <id>`
-- `recall summary search <query>`
+- `recall summary search <query> [--limit <n>]`
 
 ### Docs
 
@@ -139,6 +139,10 @@ MCP tools:
 - `summary_add`, `summary_list`, `summary_search`
 - `context_get`, `context_snapshot`
 - `doc_get`, `doc_list`
+
+`context_snapshot` params:
+- `summary_limit`, `summary_full`, `max_chars`, `include_doc_index`
+- `query`, `query_note_limit`, `query_summary_limit`
 
 ## If You See This Error
 

@@ -20,15 +20,18 @@ Core
 Note
   recall note add "<content>" [--llm <provider>] [--model <model>]
                                    Add a note
-  recall note list                 List notes
+  recall note list [--limit <n>]   List notes
   recall note get <id>             Get note details
-  recall note search <query>       Search notes by content
+  recall note search <query> [--limit <n>]
+                                   Search notes by content
 
 Summary
   recall summary add               Generate summary for unsummarized notes
-  recall summary list              List summaries
+  recall summary list [--limit <n>]
+                                   List summaries
   recall summary get <id>          Get summary details
-  recall summary search <query>    Search summaries by body
+  recall summary search <query> [--limit <n>]
+                                   Search summaries by body
 
 Doc
   recall doc add <name>            Create and register a doc
