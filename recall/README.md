@@ -91,7 +91,7 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall status` - Show note/summary/doc counts
 - `recall man` - Print command reference
 - `recall config` - Interactive config/doc editor
-- `recall context` - Print `.recall/context.md`
+- `recall context` - Print project context snapshot
 - `recall export` - Export data to `recall-export-[YYYY-MM-DD].zip`
 - `recall import <zipfile>` - Import recall data from an export zip
 - `recall mcp` - Run MCP server over stdio
@@ -118,12 +118,18 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 
 ### Context Output
 
-`recall context` prints `.recall/context.md`.
+`recall context` prints a snapshot with:
+
+1. `.recall/context.md`
+2. recent summaries (default: last 5, full body)
+3. docs index (registered docs except `context.md`) with one-line descriptions
 
 By default, output is capped at 16,000 chars for safety.
 
 - `--full` disables truncation and prints everything.
 - `--max-chars <n>` overrides the default cap.
+- `--summary-limit <n>` controls how many recent summaries to include (`0` disables summaries section content).
+- `--include-doc-index=false` omits the docs index section.
 
 Examples:
 
@@ -131,6 +137,8 @@ Examples:
 recall context
 recall context --full
 recall context --max-chars 8000
+recall context --summary-limit 10
+recall context --include-doc-index=false
 ```
 
 If `.recall/context.md` is missing:

@@ -55,7 +55,7 @@ When `note add` is called and unsummarized note count exceeds `SummaryThreshold`
 
 ## Standard Docs
 
-`context.md` is the canonical project memory doc loaded by `recall context`. It includes architecture/design/soul-style sections directly. Optional extra docs can still be added via `recall doc add` and managed with `recall doc list` / `recall doc edit`.
+`context.md` is the canonical project memory doc. `recall context` now returns a project snapshot: `context.md`, recent summaries, and a docs index (registered docs with one-line descriptions). Optional extra docs can still be added via `recall doc add` and managed with `recall doc list` / `recall doc edit`.
 
 ## Init Workflow
 
@@ -86,7 +86,7 @@ recall doc add <name>            # create and register a doc
 recall doc edit <name>           # open in $EDITOR
 recall doc list
 
-recall context                   # print .recall/context.md
+recall context                   # print context snapshot (context + summaries + doc index)
 recall export                    # outputs recall-export-[date].zip
 recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values

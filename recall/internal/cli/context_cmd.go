@@ -8,13 +8,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/roostermade/recall/internal/config"
+	"github.com/roostermade/recall/internal/db"
 	"github.com/roostermade/recall/internal/docs"
 	"github.com/spf13/cobra"
 )
 
 const defaultContextMaxChars = 16000
+const defaultContextSummaryLimit = 5
+const defaultDocDescriptionRunes = 120
 
 type contextPart struct {
 	filename string
@@ -24,6 +28,8 @@ type contextPart struct {
 func newContextCmd() *cobra.Command {
 	var full bool
 	var maxChars int
+	var summaryLimit int
+	var includeDocIndex bool
 
 	cmd := &cobra.Command{
 		Use:   "context",
@@ -44,7 +50,7 @@ func newContextCmd() *cobra.Command {
 				return err
 			}
 
-			parts, err := buildContextParts(cwd)
+			parts, err := buildContextParts(cwd, cfg, summaryLimit, includeDocIndex)
 			if err != nil {
 				return err
 			}
@@ -70,6 +76,8 @@ func newContextCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&full, "full", false, "Disable max-size safeguard and print full context")
 	cmd.Flags().IntVar(&maxChars, "max-chars", defaultContextMaxChars, "Maximum chars to print when not using --full")
+	cmd.Flags().IntVar(&summaryLimit, "summary-limit", defaultContextSummaryLimit, "Number of recent summaries to include (0 to disable)")
+	cmd.Flags().BoolVar(&includeDocIndex, "include-doc-index", true, "Include a docs index section")
 	return cmd
 }
 
@@ -121,17 +129,151 @@ func ensureContextDoc(cmd *cobra.Command, projectRoot string, cfg config.Config)
 	return cfg, nil
 }
 
-func buildContextParts(projectRoot string) ([]contextPart, error) {
+func buildContextParts(projectRoot string, cfg config.Config, summaryLimit int, includeDocIndex bool) ([]contextPart, error) {
+	if summaryLimit < 0 {
+		return nil, errors.New("--summary-limit must be greater than or equal to 0")
+	}
+
 	data, err := os.ReadFile(docs.DocPath(projectRoot, docs.ContextFilename))
 	if err != nil {
 		return nil, err
 	}
-	return []contextPart{
+	parts := []contextPart{
 		{
 			filename: docs.ContextFilename,
 			text:     renderContextSection(docs.ContextFilename, string(data)),
 		},
-	}, nil
+	}
+
+	summaries, err := loadRecentSummaries(projectRoot, summaryLimit)
+	if err != nil {
+		return nil, err
+	}
+	parts = append(parts, contextPart{
+		filename: "recent-summaries",
+		text:     renderRecentSummariesSection(summaryLimit, summaries),
+	})
+
+	if includeDocIndex {
+		indexText, err := renderDocIndexSection(projectRoot, cfg)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, contextPart{
+			filename: "docs-index",
+			text:     indexText,
+		})
+	}
+
+	return parts, nil
+}
+
+func loadRecentSummaries(projectRoot string, limit int) ([]db.Summary, error) {
+	if limit == 0 {
+		return []db.Summary{}, nil
+	}
+
+	conn, err := db.Open(config.DBPath(projectRoot))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+
+	store := db.NewStore(conn)
+	return store.ListSummaries(limit, 0)
+}
+
+func renderRecentSummariesSection(limit int, summaries []db.Summary) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("=== recent summaries (last %d) ===\n", limit))
+	if limit == 0 {
+		b.WriteString("summary section disabled (--summary-limit=0)\n\n")
+		return b.String()
+	}
+	if len(summaries) == 0 {
+		b.WriteString("no summaries found\n\n")
+		return b.String()
+	}
+
+	for _, item := range summaries {
+		body := strings.TrimSpace(item.Body)
+		if body == "" {
+			body = "TBD."
+		}
+		b.WriteString(
+			fmt.Sprintf(
+				"id:%d | note_id:%d | created_at:%s\n%s\n\n",
+				item.ID,
+				item.NoteID,
+				item.CreatedAt.UTC().Format(time.RFC3339),
+				body,
+			),
+		)
+	}
+	return b.String()
+}
+
+func renderDocIndexSection(projectRoot string, cfg config.Config) (string, error) {
+	entries, err := docs.ListRegistered(projectRoot, cfg)
+	if err != nil {
+		return "", err
+	}
+
+	var b strings.Builder
+	b.WriteString("=== docs index ===\n")
+
+	additional := 0
+	for _, entry := range entries {
+		if entry.Filename == docs.ContextFilename {
+			continue
+		}
+		additional++
+		if entry.Missing {
+			b.WriteString(fmt.Sprintf("%s | missing\n", entry.Filename))
+			continue
+		}
+		body, err := os.ReadFile(docs.DocPath(projectRoot, entry.Filename))
+		if err != nil {
+			return "", err
+		}
+		desc := firstDocDescriptionLine(string(body))
+		b.WriteString(fmt.Sprintf("%s | %s\n", entry.Filename, desc))
+	}
+
+	if additional == 0 {
+		b.WriteString("no additional docs registered\n")
+	}
+	b.WriteString("\n")
+	return b.String(), nil
+}
+
+func firstDocDescriptionLine(body string) string {
+	for _, raw := range strings.Split(body, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+		oneLine := strings.Join(strings.Fields(line), " ")
+		return truncateWithEllipsis(oneLine, defaultDocDescriptionRunes)
+	}
+	return "TBD."
+}
+
+func truncateWithEllipsis(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	if maxRunes <= 3 {
+		return string(r[:maxRunes])
+	}
+	return string(r[:maxRunes-3]) + "..."
 }
 
 func renderContextSection(filename, body string) string {
