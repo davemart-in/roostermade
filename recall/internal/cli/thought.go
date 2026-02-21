@@ -190,7 +190,10 @@ func newThoughtGetCmd() *cobra.Command {
 }
 
 func openStore(projectRoot string) (*db.Store, config.Config, func() error, error) {
-	if _, err := bootstrap.EnsureProjectInitialized(projectRoot); err != nil {
+	if err := bootstrap.RequireInitialized(projectRoot); err != nil {
+		if errors.Is(err, bootstrap.ErrNotInitialized) {
+			return nil, config.Config{}, nil, notInitializedError()
+		}
 		return nil, config.Config{}, nil, err
 	}
 
@@ -205,6 +208,10 @@ func openStore(projectRoot string) (*db.Store, config.Config, func() error, erro
 	}
 
 	return db.NewStore(conn), cfg, conn.Close, nil
+}
+
+func notInitializedError() error {
+	return errors.New("Recall is not initialized in this project. Run `recall init` first.")
 }
 
 func toOptionalString(raw string) *string {

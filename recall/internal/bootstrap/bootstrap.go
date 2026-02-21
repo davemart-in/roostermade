@@ -13,7 +13,9 @@ import (
 
 const dbGitignorePattern = ".recall/recall.db"
 
-func EnsureProjectInitialized(projectRoot string) (bool, error) {
+var ErrNotInitialized = errors.New("recall is not initialized")
+
+func EnsureBaseArtifacts(projectRoot string) (bool, error) {
 	recallDir := config.DirPath(projectRoot)
 
 	createdDir, err := ensureRecallDir(recallDir)
@@ -34,6 +36,39 @@ func EnsureProjectInitialized(projectRoot string) (bool, error) {
 	}
 
 	return createdDir, nil
+}
+
+// EnsureProjectInitialized is retained for compatibility with previous phases.
+func EnsureProjectInitialized(projectRoot string) (bool, error) {
+	return EnsureBaseArtifacts(projectRoot)
+}
+
+func IsInitialized(projectRoot string) (bool, error) {
+	configPath := config.ConfigPath(projectRoot)
+	if _, err := os.Stat(configPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return false, err
+	}
+
+	return cfg.Initialized, nil
+}
+
+func RequireInitialized(projectRoot string) error {
+	initialized, err := IsInitialized(projectRoot)
+	if err != nil {
+		return err
+	}
+	if !initialized {
+		return ErrNotInitialized
+	}
+	return nil
 }
 
 func ensureRecallDir(path string) (bool, error) {

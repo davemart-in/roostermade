@@ -91,3 +91,39 @@ func TestEnsureProjectInitializedIsIdempotent(t *testing.T) {
 		t.Fatalf("expected exactly one .recall/recall.db entry, got %d", got)
 	}
 }
+
+func TestIsInitializedRequiresConfigFlag(t *testing.T) {
+	projectRoot := filepath.Join(t.TempDir(), "init-flag-project")
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := EnsureBaseArtifacts(projectRoot); err != nil {
+		t.Fatalf("ensure base artifacts: %v", err)
+	}
+
+	initialized, err := IsInitialized(projectRoot)
+	if err != nil {
+		t.Fatalf("is initialized: %v", err)
+	}
+	if initialized {
+		t.Fatalf("expected project to be uninitialized until config.Initialized is true")
+	}
+
+	cfg, err := config.Load(config.ConfigPath(projectRoot))
+	if err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+	cfg.Initialized = true
+	if err := config.Save(config.ConfigPath(projectRoot), cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	initialized, err = IsInitialized(projectRoot)
+	if err != nil {
+		t.Fatalf("is initialized after update: %v", err)
+	}
+	if !initialized {
+		t.Fatalf("expected project to be initialized when config.Initialized is true")
+	}
+}

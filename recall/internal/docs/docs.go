@@ -21,6 +21,18 @@ var knownDocTitles = map[string]string{
 	"auth":             "Auth",
 	"principles":       "Principles",
 }
+var knownDocOrder = []string{
+	"project-overview",
+	"architecture",
+	"tech-stack",
+	"design",
+	"api",
+	"mcp",
+	"auth",
+	"principles",
+}
+
+const ContextFilename = "context.md"
 
 type Entry struct {
 	Filename   string
@@ -65,6 +77,19 @@ func NormalizeDocName(input string) (filename string, base string, err error) {
 func IsKnown(base string) bool {
 	_, ok := knownDocTitles[base]
 	return ok
+}
+
+func TitleFor(base string) string {
+	if title, ok := knownDocTitles[base]; ok {
+		return title
+	}
+	return base
+}
+
+func KnownDocBases() []string {
+	out := make([]string, len(knownDocOrder))
+	copy(out, knownDocOrder)
+	return out
 }
 
 func TemplateFor(base string) string {

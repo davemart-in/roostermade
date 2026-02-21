@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -168,7 +169,10 @@ func newDocListCmd() *cobra.Command {
 }
 
 func ensureProjectAndLoadConfig(projectRoot string) (config.Config, error) {
-	if _, err := bootstrap.EnsureProjectInitialized(projectRoot); err != nil {
+	if err := bootstrap.RequireInitialized(projectRoot); err != nil {
+		if errors.Is(err, bootstrap.ErrNotInitialized) {
+			return config.Config{}, notInitializedError()
+		}
 		return config.Config{}, err
 	}
 

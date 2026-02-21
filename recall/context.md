@@ -13,12 +13,14 @@ AI agents lose context at compaction boundaries and between sessions. Existing w
 Recall stores data in a `.recall/` directory in the project root containing:
 
 - `recall.db` — SQLite database (excluded from git)
-- `config.json` — project configuration (`project_name`, `summary_threshold`)
+- `config.json` — project configuration (`project_name`, `summary_threshold`, `docs`, `initialized`)
+- `context.md` — guided project context captured by `recall init`
 - `*.md` files — human and agent readable context docs (tracked in git)
 
-Recall bootstraps `.recall/` automatically on first write operation (for example, `thought add`), using:
-- `project_name` defaulted from the current folder name
-- `summary_threshold` defaulted to `10`
+Recall is initialized with `recall init` and stores setup in `.recall/`:
+- `project_name` defaults to the current folder name (editable during init)
+- `summary_threshold` defaults to `10` (editable during init)
+- `initialized` must be `true` before thought/summary/doc commands are allowed
 
 ### Schema
 ```sql
@@ -53,7 +55,7 @@ When `thought add` is called and unsummarized thought count exceeds `SummaryThre
 
 ## Standard Docs
 
-Recall manages a set of standard `.md` files that agents can read for project context. Docs are opt-in and can be created/managed through doc commands. Example docs:
+Recall manages a set of standard `.md` files that agents can read for project context. During `recall init`, Recall can recommend docs from context and then run interactive planning Q&A per selected doc. Existing non-empty docs are not overwritten in init update mode. Example docs:
 
 - `project-overview.md`
 - `architecture.md`
@@ -66,10 +68,22 @@ Recall manages a set of standard `.md` files that agents can read for project co
 
 Custom doc names are also supported.
 
+## Init Workflow
+
+`recall init` is the required setup path for a project. It supports first-run and update mode:
+
+1. Ensures `.recall/` base artifacts exist
+2. Prompts for editable project settings (project name + summary threshold)
+3. Captures guided project context into `.recall/context.md` (keeps existing file if already present)
+4. Recommends docs via `RECALL_SUMMARIZER_CMD` when available (falls back to manual selection)
+5. Builds selected doc plans through interactive Q&A until satisfactory
+6. Registers docs in config and sets `initialized=true`
+
 ## CLI Commands
 ```
 recall status                    # thought count, summary count, doc count
 recall man                       # full command reference
+recall init                      # guided setup + context/doc planning
 
 recall thought add "<content>" [--llm claude] [--model claude-sonnet-4-6]
 recall thought list
@@ -89,7 +103,7 @@ recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values
 ```
 
-Note: setup is auto-bootstrapped on first write command; an interactive `recall init` flow is intentionally not required in the current design.
+Note: `recall init` is required before using thought/summary/doc commands.
 
 ## MCP Tools
 
