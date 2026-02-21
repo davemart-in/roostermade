@@ -12,7 +12,6 @@ import (
 	"github.com/roostermade/recall/internal/config"
 	"github.com/roostermade/recall/internal/db"
 	"github.com/roostermade/recall/internal/docs"
-	"github.com/roostermade/recall/internal/summarizer"
 	"github.com/spf13/cobra"
 )
 
@@ -117,8 +116,10 @@ func runDoctorChecks(projectRoot string) ([]doctorCheck, bool) {
 		}
 	}
 
-	for _, providerCheck := range providerChecks(cfg.SummarizerProvider) {
-		add(providerCheck.Level, providerCheck.Subject, providerCheck.Message)
+	if effectiveCmd != "" {
+		for _, providerCheck := range providerChecksForCommand(effectiveCmd) {
+			add(providerCheck.Level, providerCheck.Subject, providerCheck.Message)
+		}
 	}
 
 	return checks, hasFailure
@@ -132,28 +133,28 @@ func resolveEffectiveSummarizerCmd(configuredCmd string) string {
 	return strings.TrimSpace(configuredCmd)
 }
 
-func providerChecks(provider string) []doctorCheck {
+func providerChecksForCommand(command string) []doctorCheck {
 	out := make([]doctorCheck, 0, 2)
 	add := func(level doctorLevel, subject string, message string) {
 		out = append(out, doctorCheck{Level: level, Subject: subject, Message: message})
 	}
-
+	provider := inferProviderFromCommand(command)
 	switch provider {
-	case "", summarizer.ProviderNone:
-		add(doctorWarn, "provider", "no summarizer provider selected")
-	case summarizer.ProviderClaude:
+	case "":
+		add(doctorWarn, "provider", "could not infer provider from summarizer command")
+	case "claude":
 		if commandExists("claude") {
 			add(doctorOK, "provider:claude", "claude CLI found in PATH")
 		} else {
 			add(doctorFail, "provider:claude", "claude CLI not found in PATH")
 		}
-	case summarizer.ProviderCodex:
+	case "codex":
 		if commandExists("codex") {
 			add(doctorOK, "provider:codex", "codex CLI found in PATH")
 		} else {
 			add(doctorFail, "provider:codex", "codex CLI not found in PATH")
 		}
-	case summarizer.ProviderCursor:
+	case "cursor":
 		if strings.TrimSpace(os.Getenv("CURSOR_API_KEY")) == "" {
 			add(doctorFail, "provider:cursor", "CURSOR_API_KEY is not set")
 		} else {
@@ -169,10 +170,22 @@ func providerChecks(provider string) []doctorCheck {
 		} else {
 			add(doctorFail, "provider:cursor", "jq not found in PATH")
 		}
-	default:
-		add(doctorWarn, "provider", fmt.Sprintf("unknown provider value %q", provider))
 	}
 	return out
+}
+
+func inferProviderFromCommand(command string) string {
+	v := strings.ToLower(strings.TrimSpace(command))
+	switch {
+	case strings.Contains(v, "claude"):
+		return "claude"
+	case strings.Contains(v, "codex"):
+		return "codex"
+	case strings.Contains(v, "cursor"):
+		return "cursor"
+	default:
+		return ""
+	}
 }
 
 func looksPathLike(command string) bool {

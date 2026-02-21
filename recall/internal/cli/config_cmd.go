@@ -12,7 +12,6 @@ import (
 
 	"github.com/roostermade/recall/internal/config"
 	"github.com/roostermade/recall/internal/docs"
-	"github.com/roostermade/recall/internal/summarizer"
 	"github.com/spf13/cobra"
 )
 
@@ -223,8 +222,6 @@ func getConfigValue(cfg config.Config, key string) (string, error) {
 		return cfg.ProjectName, nil
 	case "summary_threshold":
 		return strconv.Itoa(cfg.SummaryThreshold), nil
-	case "summarizer_provider":
-		return cfg.SummarizerProvider, nil
 	case "summarizer_cmd":
 		return cfg.SummarizerCmd, nil
 	case "docs":
@@ -258,17 +255,6 @@ func setConfigValue(cfg *config.Config, key string, value string) error {
 			return errors.New("summary_threshold must be a positive integer")
 		}
 		cfg.SummaryThreshold = n
-		return nil
-	case "summarizer_provider":
-		provider := strings.ToLower(strings.TrimSpace(value))
-		if !summarizer.IsValidProvider(provider) {
-			return errors.New("summarizer_provider must be one of: claude, codex, cursor, none")
-		}
-		if provider == summarizer.ProviderNone {
-			cfg.SummarizerProvider = ""
-			return nil
-		}
-		cfg.SummarizerProvider = provider
 		return nil
 	case "summarizer_cmd":
 		cfg.SummarizerCmd = strings.TrimSpace(value)

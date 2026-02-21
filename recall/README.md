@@ -84,7 +84,6 @@ Note: new docs created by Recall start with a `Summary:` line.
 Writable keys:
 - `project_name`
 - `summary_threshold`
-- `summarizer_provider`
 - `summarizer_cmd`
 
 Read-only keys:

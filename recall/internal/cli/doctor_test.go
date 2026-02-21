@@ -3,8 +3,6 @@ package cli
 import (
 	"strings"
 	"testing"
-
-	"github.com/roostermade/recall/internal/summarizer"
 )
 
 func TestResolveEffectiveSummarizerCmd(t *testing.T) {
@@ -31,17 +29,18 @@ func TestLooksPathLike(t *testing.T) {
 	}
 }
 
-func TestProviderChecksNoneAndUnknown(t *testing.T) {
-	checks := providerChecks(summarizer.ProviderNone)
+func TestProviderChecksForCommand(t *testing.T) {
+	checks := providerChecksForCommand("")
 	if len(checks) == 0 || checks[0].Level != doctorWarn {
-		t.Fatalf("expected warn checks for none provider, got %#v", checks)
+		t.Fatalf("expected warn checks for unknown provider, got %#v", checks)
 	}
 
-	checks = providerChecks("mystery")
-	if len(checks) == 0 {
-		t.Fatal("expected checks for unknown provider")
+	checks = providerChecksForCommand("codex exec 'hi'")
+	if len(checks) == 0 || !strings.Contains(checks[0].Subject, "provider:codex") {
+		t.Fatalf("expected codex checks, got %#v", checks)
 	}
-	if checks[0].Level != doctorWarn || !strings.Contains(checks[0].Message, "unknown provider") {
-		t.Fatalf("unexpected unknown provider check: %#v", checks[0])
+
+	if got := inferProviderFromCommand("/tmp/bin/summarize-cursor.sh"); got != "cursor" {
+		t.Fatalf("unexpected inferred provider: %q", got)
 	}
 }

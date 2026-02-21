@@ -8,21 +8,19 @@ import (
 
 func TestGetConfigValue(t *testing.T) {
 	cfg := config.Config{
-		ProjectName:        "recall",
-		SummaryThreshold:   10,
-		SummarizerProvider: "codex",
-		SummarizerCmd:      "/tmp/summarize.sh",
-		Docs:               []string{"context.md", "api.md"},
-		Initialized:        true,
+		ProjectName:      "recall",
+		SummaryThreshold: 10,
+		SummarizerCmd:    "/tmp/summarize.sh",
+		Docs:             []string{"context.md", "api.md"},
+		Initialized:      true,
 	}
 
 	cases := map[string]string{
-		"project_name":        "recall",
-		"summary_threshold":   "10",
-		"summarizer_provider": "codex",
-		"summarizer_cmd":      "/tmp/summarize.sh",
-		"docs":                `["context.md","api.md"]`,
-		"initialized":         "true",
+		"project_name":      "recall",
+		"summary_threshold": "10",
+		"summarizer_cmd":    "/tmp/summarize.sh",
+		"docs":              `["context.md","api.md"]`,
+		"initialized":       "true",
 	}
 	for key, want := range cases {
 		got, err := getConfigValue(cfg, key)
@@ -58,20 +56,6 @@ func TestSetConfigValue(t *testing.T) {
 		t.Fatalf("unexpected summary_threshold: %d", cfg.SummaryThreshold)
 	}
 
-	if err := setConfigValue(&cfg, "summarizer_provider", "codex"); err != nil {
-		t.Fatalf("set summarizer_provider: %v", err)
-	}
-	if cfg.SummarizerProvider != "codex" {
-		t.Fatalf("unexpected provider: %s", cfg.SummarizerProvider)
-	}
-
-	if err := setConfigValue(&cfg, "summarizer_provider", "none"); err != nil {
-		t.Fatalf("set summarizer_provider none: %v", err)
-	}
-	if cfg.SummarizerProvider != "" {
-		t.Fatalf("expected provider cleared on none, got %q", cfg.SummarizerProvider)
-	}
-
 	if err := setConfigValue(&cfg, "summarizer_cmd", "echo hi"); err != nil {
 		t.Fatalf("set summarizer_cmd: %v", err)
 	}
@@ -88,7 +72,7 @@ func TestSetConfigValue(t *testing.T) {
 	if err := setConfigValue(&cfg, "summary_threshold", "0"); err == nil {
 		t.Fatal("expected invalid summary_threshold error")
 	}
-	if err := setConfigValue(&cfg, "summarizer_provider", "bad"); err == nil {
-		t.Fatal("expected invalid provider error")
+	if err := setConfigValue(&cfg, "summarizer_provider", "codex"); err == nil {
+		t.Fatal("expected unknown key error for removed summarizer_provider")
 	}
 }

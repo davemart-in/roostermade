@@ -91,7 +91,6 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 	}
 	switch provider {
 	case summarizer.ProviderNone:
-		cfg.SummarizerProvider = ""
 		cfg.SummarizerCmd = ""
 		fmt.Fprintln(out, "summarizer setup skipped")
 	default:
@@ -99,7 +98,6 @@ func runInitWizard(reader *bufio.Reader, out io.Writer, errOut io.Writer, projec
 		if err != nil {
 			return cfg, err
 		}
-		cfg.SummarizerProvider = provider
 		cfg.SummarizerCmd = wrapperPath
 		fmt.Fprintf(out, "configured summarizer provider: %s\n", provider)
 		fmt.Fprintf(out, "configured summarizer command: %s\n", wrapperPath)

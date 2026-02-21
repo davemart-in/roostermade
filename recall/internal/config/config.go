@@ -14,12 +14,11 @@ const (
 )
 
 type Config struct {
-	ProjectName        string   `json:"project_name"`
-	SummaryThreshold   int      `json:"summary_threshold"`
-	SummarizerProvider string   `json:"summarizer_provider,omitempty"`
-	SummarizerCmd      string   `json:"summarizer_cmd,omitempty"`
-	Docs               []string `json:"docs,omitempty"`
-	Initialized        bool     `json:"initialized"`
+	ProjectName      string   `json:"project_name"`
+	SummaryThreshold int      `json:"summary_threshold"`
+	SummarizerCmd    string   `json:"summarizer_cmd,omitempty"`
+	Docs             []string `json:"docs,omitempty"`
+	Initialized      bool     `json:"initialized"`
 }
 
 func DirPath(projectRoot string) string {
