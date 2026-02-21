@@ -23,6 +23,36 @@ func TestOpenAutoInitializesSchema(t *testing.T) {
 			t.Fatalf("expected table %s to exist", table)
 		}
 	}
+
+	notesFTS, err := hasTable(conn, "notes_fts")
+	if err != nil {
+		t.Fatalf("query sqlite_master for notes_fts: %v", err)
+	}
+	summariesFTS, err := hasTable(conn, "summaries_fts")
+	if err != nil {
+		t.Fatalf("query sqlite_master for summaries_fts: %v", err)
+	}
+	if notesFTS != summariesFTS {
+		t.Fatalf("expected notes_fts and summaries_fts to both exist or both be absent")
+	}
+
+	if notesFTS {
+		for _, trigger := range []string{
+			"notes_ai", "notes_ad", "notes_au",
+			"summaries_ai", "summaries_ad", "summaries_au",
+		} {
+			var count int
+			if err := conn.QueryRow(
+				`SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name=?`,
+				trigger,
+			).Scan(&count); err != nil {
+				t.Fatalf("query sqlite_master for trigger %s: %v", trigger, err)
+			}
+			if count != 1 {
+				t.Fatalf("expected trigger %s to exist", trigger)
+			}
+		}
+	}
 }
 
 func TestNoteCRUD(t *testing.T) {
@@ -326,5 +356,27 @@ func TestSearchNotesAndSummaries(t *testing.T) {
 	}
 	if _, err := store.SearchSummaries("", 10, 0); err == nil {
 		t.Fatal("expected empty summary query error")
+	}
+}
+
+func TestBuildFTSMatchQuery(t *testing.T) {
+	got, err := buildFTSMatchQuery(` payment  retry  `)
+	if err != nil {
+		t.Fatalf("buildFTSMatchQuery: %v", err)
+	}
+	if got != `"payment" AND "retry"` {
+		t.Fatalf("unexpected match query: %q", got)
+	}
+
+	got, err = buildFTSMatchQuery(`  "quoted"  phrase  `)
+	if err != nil {
+		t.Fatalf("buildFTSMatchQuery quoted: %v", err)
+	}
+	if got != `"quoted" AND "phrase"` {
+		t.Fatalf("unexpected quoted match query: %q", got)
+	}
+
+	if _, err := buildFTSMatchQuery(`   ""   `); err == nil {
+		t.Fatal("expected empty match query error")
 	}
 }

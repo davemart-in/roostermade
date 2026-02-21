@@ -68,6 +68,8 @@ recall note list
 - `recall summary get <id>`
 - `recall summary search <query> [--limit <n>]`
 
+Search uses SQLite FTS5 ranking when available and automatically falls back to substring matching otherwise.
+
 ### Docs
 
 - `recall doc add <name>`

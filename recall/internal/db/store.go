@@ -11,7 +11,8 @@ import (
 const defaultListLimit = 100
 
 type Store struct {
-	db *sql.DB
+	db         *sql.DB
+	ftsEnabled bool
 }
 
 type Note struct {
@@ -34,7 +35,11 @@ type rowScanner interface {
 }
 
 func NewStore(db *sql.DB) *Store {
-	return &Store{db: db}
+	enabled, err := detectFTSEnabled(db)
+	if err != nil {
+		enabled = false
+	}
+	return &Store{db: db, ftsEnabled: enabled}
 }
 
 func (s *Store) CreateNote(content string, llm, model *string) (Note, error) {
@@ -93,16 +98,7 @@ func (s *Store) SearchNotes(query string, limit, offset int) ([]Note, error) {
 	}
 
 	limit, offset = sanitizeListParams(limit, offset)
-	rows, err := s.db.Query(
-		`SELECT id, content, llm, model, created_at
-		 FROM notes
-		 WHERE instr(lower(content), lower(?)) > 0
-		 ORDER BY id DESC
-		 LIMIT ? OFFSET ?`,
-		query,
-		limit,
-		offset,
-	)
+	rows, err := s.searchNotesRows(query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +117,37 @@ func (s *Store) SearchNotes(query string, limit, offset int) ([]Note, error) {
 	}
 
 	return notes, nil
+}
+
+func (s *Store) searchNotesRows(query string, limit int, offset int) (*sql.Rows, error) {
+	if s.ftsEnabled {
+		matchQuery, err := buildFTSMatchQuery(query)
+		if err != nil {
+			return nil, err
+		}
+		return s.db.Query(
+			`SELECT n.id, n.content, n.llm, n.model, n.created_at
+			 FROM notes_fts nf
+			 JOIN notes n ON n.id = nf.rowid
+			 WHERE notes_fts MATCH ?
+			 ORDER BY bm25(notes_fts), n.id DESC
+			 LIMIT ? OFFSET ?`,
+			matchQuery,
+			limit,
+			offset,
+		)
+	}
+
+	return s.db.Query(
+		`SELECT id, content, llm, model, created_at
+		 FROM notes
+		 WHERE instr(lower(content), lower(?)) > 0
+		 ORDER BY id DESC
+		 LIMIT ? OFFSET ?`,
+		query,
+		limit,
+		offset,
+	)
 }
 
 func (s *Store) UpdateNote(id int64, content string, llm, model *string) (Note, error) {
@@ -207,16 +234,7 @@ func (s *Store) SearchSummaries(query string, limit, offset int) ([]Summary, err
 	}
 
 	limit, offset = sanitizeListParams(limit, offset)
-	rows, err := s.db.Query(
-		`SELECT id, note_id, body, created_at
-		 FROM summaries
-		 WHERE instr(lower(body), lower(?)) > 0
-		 ORDER BY id DESC
-		 LIMIT ? OFFSET ?`,
-		query,
-		limit,
-		offset,
-	)
+	rows, err := s.searchSummariesRows(query, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -235,6 +253,37 @@ func (s *Store) SearchSummaries(query string, limit, offset int) ([]Summary, err
 	}
 
 	return summaries, nil
+}
+
+func (s *Store) searchSummariesRows(query string, limit int, offset int) (*sql.Rows, error) {
+	if s.ftsEnabled {
+		matchQuery, err := buildFTSMatchQuery(query)
+		if err != nil {
+			return nil, err
+		}
+		return s.db.Query(
+			`SELECT s.id, s.note_id, s.body, s.created_at
+			 FROM summaries_fts sf
+			 JOIN summaries s ON s.id = sf.rowid
+			 WHERE summaries_fts MATCH ?
+			 ORDER BY bm25(summaries_fts), s.id DESC
+			 LIMIT ? OFFSET ?`,
+			matchQuery,
+			limit,
+			offset,
+		)
+	}
+
+	return s.db.Query(
+		`SELECT id, note_id, body, created_at
+		 FROM summaries
+		 WHERE instr(lower(body), lower(?)) > 0
+		 ORDER BY id DESC
+		 LIMIT ? OFFSET ?`,
+		query,
+		limit,
+		offset,
+	)
 }
 
 func (s *Store) UpdateSummary(id int64, noteID int64, body string) (Summary, error) {
@@ -416,4 +465,44 @@ func parseSQLiteTimeString(raw string) (time.Time, error) {
 	}
 
 	return time.Time{}, errors.New("parse sqlite datetime: " + parseErr.Error())
+}
+
+func detectFTSEnabled(db *sql.DB) (bool, error) {
+	notesFTS, err := hasTable(db, "notes_fts")
+	if err != nil {
+		return false, err
+	}
+	summariesFTS, err := hasTable(db, "summaries_fts")
+	if err != nil {
+		return false, err
+	}
+	return notesFTS && summariesFTS, nil
+}
+
+func hasTable(db *sql.DB, name string) (bool, error) {
+	var count int
+	if err := db.QueryRow(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`,
+		name,
+	).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func buildFTSMatchQuery(raw string) (string, error) {
+	terms := strings.Fields(raw)
+	parts := make([]string, 0, len(terms))
+	for _, term := range terms {
+		trimmed := strings.TrimSpace(strings.Trim(term, `"`))
+		if trimmed == "" {
+			continue
+		}
+		escaped := strings.ReplaceAll(trimmed, `"`, `""`)
+		parts = append(parts, `"`+escaped+`"`)
+	}
+	if len(parts) == 0 {
+		return "", errors.New("query cannot be empty")
+	}
+	return strings.Join(parts, " AND "), nil
 }
