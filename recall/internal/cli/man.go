@@ -10,6 +10,8 @@ Core
   recall man                       Show this command reference
   recall config                    Interactive config and doc selection editor
   recall context                   Print .recall/context.md
+  recall export                    Export recall data to zip
+  recall import <zipfile>          Import recall data from zip
 
 Thought
   recall thought add "<content>" [--llm <provider>] [--model <model>]
