@@ -15,4 +15,4 @@ Core workflow:
 - `recall context` to load a project snapshot
 - `recall note add` to record important work
 
-Full docs: see `recall/README.md`.
+Full docs: see [recall/README.md](recall/README.md).
