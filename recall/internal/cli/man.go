@@ -8,7 +8,7 @@ Core
   recall init                      Guided setup + context capture
   recall status                    Show note/summary/doc counts
   recall man                       Show this command reference
-  recall config                    Interactive config and doc selection editor
+  recall config                    Interactive config/doc editor
   recall context                   Print context snapshot (context + summaries + docs)
   recall mcp                       Run MCP server over stdio
   recall export                    Export recall data to zip

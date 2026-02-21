@@ -88,6 +88,24 @@ func TestBuildContextPartsSummaryLimitZeroAndNoDocIndex(t *testing.T) {
 	}
 }
 
+func TestBuildContextPartsRejectsNegativeSummaryLimit(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(config.DirPath(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(config.DirPath(root), docs.ContextFilename), []byte("ctx"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := buildContextParts(root, config.Config{Docs: []string{docs.ContextFilename}}, -1, true)
+	if err == nil {
+		t.Fatal("expected error for negative summary limit")
+	}
+	if !strings.Contains(err.Error(), "--summary-limit") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestFirstDocDescriptionLine(t *testing.T) {
 	got := firstDocDescriptionLine("# Title\n\n## Subtitle\n\n  first meaningful line  ")
 	if got != "first meaningful line" {

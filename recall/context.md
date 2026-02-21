@@ -123,7 +123,7 @@ doc_list()
 - CLI: cobra
 - SQLite: modernc.org/sqlite (pure Go, no CGO)
 - MCP: github.com/mark3labs/mcp-go
-- Summarization: LLM (Claude Code, Codes, Cursor, etc...)
+- Summarization: LLM (Claude Code, Codex, Cursor, etc...)
 
 ## Directory Structure
 ```
