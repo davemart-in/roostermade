@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +18,9 @@ import (
 const summarizerEnvVar = "RECALL_SUMMARIZER_CMD"
 const summarizerTimeoutEnvVar = "RECALL_SUMMARIZER_TIMEOUT"
 const defaultSummarizerTimeout = 90 * time.Second
+const maxSummaryRepairAttempts = 1
+
+var summaryBulletIDPattern = regexp.MustCompile(`(?m)^\s*[-*]\s+\[#([0-9]+)\]\s+.+$`)
 
 func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
 	return GenerateAndStoreWithCommand(store, "")
@@ -34,6 +39,14 @@ func GenerateAndStoreWithCommand(store *db.Store, configuredCmd string) (db.Summ
 	body, err := RunSummarizerCommandWith(configuredCmd, prompt)
 	if err != nil {
 		return db.Summary{}, false, err
+	}
+	expectedIDs := expectedNoteIDs(notes)
+	if err := validateSummaryOutput(body, expectedIDs); err != nil {
+		repaired, repairErr := retryRepairSummary(configuredCmd, notes, body, err)
+		if repairErr != nil {
+			return db.Summary{}, false, repairErr
+		}
+		body = repaired
 	}
 
 	highWaterID := notes[len(notes)-1].ID
@@ -122,4 +135,136 @@ func buildPrompt(notes []db.Note) string {
 	}
 
 	return b.String()
+}
+
+func buildRepairPrompt(notes []db.Note, invalidOutput string, validationErr error) string {
+	var b strings.Builder
+	b.WriteString("Rewrite the summary into valid format.\n")
+	b.WriteString("Rules:\n")
+	b.WriteString("- Return exactly one short past-tense bullet per note.\n")
+	b.WriteString("- Each bullet must begin with [#id].\n")
+	b.WriteString("- Use only the note IDs listed below, each exactly once.\n")
+	b.WriteString("- Output bullets only.\n\n")
+
+	b.WriteString("Expected note IDs:\n")
+	for _, id := range expectedNoteIDs(notes) {
+		b.WriteString(fmt.Sprintf("- %d\n", id))
+	}
+	b.WriteString("\n")
+
+	b.WriteString("Validation failure:\n")
+	b.WriteString(validationErr.Error())
+	b.WriteString("\n\n")
+
+	b.WriteString("Original invalid summary:\n")
+	b.WriteString(invalidOutput)
+	b.WriteString("\n")
+	return b.String()
+}
+
+func retryRepairSummary(configuredCmd string, notes []db.Note, invalidOutput string, validationErr error) (string, error) {
+	expectedIDs := expectedNoteIDs(notes)
+	body := invalidOutput
+	err := validationErr
+
+	for i := 0; i < maxSummaryRepairAttempts; i++ {
+		repairPrompt := buildRepairPrompt(notes, body, err)
+		repaired, runErr := RunSummarizerCommandWith(configuredCmd, repairPrompt)
+		if runErr != nil {
+			return "", runErr
+		}
+		if validateErr := validateSummaryOutput(repaired, expectedIDs); validateErr == nil {
+			return repaired, nil
+		} else {
+			body = repaired
+			err = validateErr
+		}
+	}
+
+	return "", fmt.Errorf("summary output invalid after repair attempt: %w", err)
+}
+
+func validateSummaryOutput(output string, expectedIDs []int64) error {
+	trimmed := strings.TrimSpace(output)
+	if trimmed == "" {
+		return errors.New("summary output is empty")
+	}
+	if len(expectedIDs) == 0 {
+		return errors.New("expected IDs cannot be empty")
+	}
+
+	for _, raw := range strings.Split(trimmed, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if !summaryBulletIDPattern.MatchString(line) {
+			return fmt.Errorf("summary contains non-bullet content: %q", line)
+		}
+	}
+
+	foundIDs, err := extractBulletIDs(trimmed)
+	if err != nil {
+		return err
+	}
+	if len(foundIDs) != len(expectedIDs) {
+		return fmt.Errorf("expected %d bullets, got %d", len(expectedIDs), len(foundIDs))
+	}
+
+	expectedCounts := make(map[int64]int, len(expectedIDs))
+	for _, id := range expectedIDs {
+		expectedCounts[id]++
+	}
+	foundCounts := make(map[int64]int, len(foundIDs))
+	for _, id := range foundIDs {
+		foundCounts[id]++
+	}
+
+	for id, expectedCount := range expectedCounts {
+		gotCount := foundCounts[id]
+		if gotCount < expectedCount {
+			return fmt.Errorf("missing bullet for note id %d", id)
+		}
+		if gotCount > expectedCount {
+			return fmt.Errorf("duplicate bullet for note id %d", id)
+		}
+	}
+
+	extras := make([]int64, 0)
+	for id := range foundCounts {
+		if _, ok := expectedCounts[id]; !ok {
+			extras = append(extras, id)
+		}
+	}
+	if len(extras) > 0 {
+		slices.Sort(extras)
+		return fmt.Errorf("summary contains unexpected note ids: %v", extras)
+	}
+
+	return nil
+}
+
+func extractBulletIDs(output string) ([]int64, error) {
+	matches := summaryBulletIDPattern.FindAllStringSubmatch(output, -1)
+	if len(matches) == 0 {
+		return nil, errors.New("summary must contain bullets in format '- [#id] ...'")
+	}
+
+	ids := make([]int64, 0, len(matches))
+	for _, match := range matches {
+		var id int64
+		if _, err := fmt.Sscanf(match[1], "%d", &id); err != nil || id <= 0 {
+			return nil, fmt.Errorf("invalid note id in bullet: %q", match[1])
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+func expectedNoteIDs(notes []db.Note) []int64 {
+	out := make([]int64, 0, len(notes))
+	for _, note := range notes {
+		out = append(out, note.ID)
+	}
+	return out
 }
