@@ -14,8 +14,9 @@ const (
 )
 
 type Config struct {
-	ProjectName      string `json:"project_name"`
-	SummaryThreshold int    `json:"summary_threshold"`
+	ProjectName      string   `json:"project_name"`
+	SummaryThreshold int      `json:"summary_threshold"`
+	Docs             []string `json:"docs,omitempty"`
 }
 
 func DirPath(projectRoot string) string {
