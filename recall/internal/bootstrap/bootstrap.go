@@ -13,6 +13,7 @@ import (
 
 const dbGitignorePattern = ".recall/recall.db"
 const recallDirGitignorePattern = "recall.db"
+const recallDirExportsGitignorePattern = "exports/"
 
 var ErrNotInitialized = errors.New("recall is not initialized")
 
@@ -148,10 +149,22 @@ func ensureRecallDirGitignore(projectRoot string) error {
 	}
 
 	if strings.Contains(string(data), recallDirGitignorePattern) {
-		return nil
+		if strings.Contains(string(data), recallDirExportsGitignorePattern) {
+			return nil
+		}
 	}
 
-	line := recallDirGitignorePattern + "\n"
+	lines := []string{}
+	if !strings.Contains(string(data), recallDirGitignorePattern) {
+		lines = append(lines, recallDirGitignorePattern)
+	}
+	if !strings.Contains(string(data), recallDirExportsGitignorePattern) {
+		lines = append(lines, recallDirExportsGitignorePattern)
+	}
+	if len(lines) == 0 {
+		return nil
+	}
+	line := strings.Join(lines, "\n") + "\n"
 	if len(data) == 0 {
 		return os.WriteFile(path, []byte(line), 0o644)
 	}

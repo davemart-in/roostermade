@@ -20,8 +20,13 @@ import (
 )
 
 const (
-	serverName    = "recall"
-	serverVersion = "0.1.0"
+	serverName                         = "recall"
+	serverVersion                      = "0.1.0"
+	defaultSearchLimit                 = 20
+	maxSearchLimit                     = 200
+	defaultContextSnapshotSummaryLimit = 5
+	defaultContextSnapshotMaxChars     = 16000
+	contextSummaryPreviewChars         = 120
 )
 
 type notePayload struct {
@@ -145,6 +150,38 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 
 	srv.AddTool(
 		mcp.NewTool(
+			"note_search",
+			mcp.WithDescription("Search notes by content"),
+			mcp.WithString("query", mcp.Required(), mcp.Description("Search query")),
+			mcp.WithNumber("limit", mcp.Description("Optional result limit (default 20, max 200)")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_ = ctx
+			query, err := request.RequireString("query")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			query = strings.TrimSpace(query)
+			if query == "" {
+				return mcp.NewToolResultError("query cannot be empty"), nil
+			}
+			limit := clampLimit(request.GetInt("limit", defaultSearchLimit))
+			notes, err := store.SearchNotes(query, limit, 0)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("search notes: %v", err)), nil
+			}
+			items := make([]notePayload, 0, len(notes))
+			for _, note := range notes {
+				items = append(items, toNotePayload(note))
+			}
+			return mcp.NewToolResultStructuredOnly(map[string]any{
+				"notes": items,
+			}), nil
+		},
+	)
+
+	srv.AddTool(
+		mcp.NewTool(
 			"note_get",
 			mcp.WithDescription("Get a note by id"),
 			mcp.WithNumber("id", mcp.Required(), mcp.Description("Note id")),
@@ -221,6 +258,91 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 
 			return mcp.NewToolResultStructuredOnly(map[string]any{
 				"summaries": items,
+			}), nil
+		},
+	)
+
+	srv.AddTool(
+		mcp.NewTool(
+			"summary_search",
+			mcp.WithDescription("Search summaries by body"),
+			mcp.WithString("query", mcp.Required(), mcp.Description("Search query")),
+			mcp.WithNumber("limit", mcp.Description("Optional result limit (default 20, max 200)")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_ = ctx
+			query, err := request.RequireString("query")
+			if err != nil {
+				return mcp.NewToolResultError(err.Error()), nil
+			}
+			query = strings.TrimSpace(query)
+			if query == "" {
+				return mcp.NewToolResultError("query cannot be empty"), nil
+			}
+			limit := clampLimit(request.GetInt("limit", defaultSearchLimit))
+			summaries, err := store.SearchSummaries(query, limit, 0)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("search summaries: %v", err)), nil
+			}
+			items := make([]summaryPayload, 0, len(summaries))
+			for _, item := range summaries {
+				items = append(items, toSummaryPayload(item))
+			}
+			return mcp.NewToolResultStructuredOnly(map[string]any{
+				"summaries": items,
+			}), nil
+		},
+	)
+
+	srv.AddTool(
+		mcp.NewTool(
+			"context_snapshot",
+			mcp.WithDescription("Get assembled context snapshot (context + summaries + docs + optional query matches)"),
+			mcp.WithNumber("summary_limit", mcp.Description("Recent summary count (default 5)")),
+			mcp.WithBoolean("summary_full", mcp.Description("Include full summary bodies")),
+			mcp.WithNumber("max_chars", mcp.Description("Maximum output characters (default 16000)")),
+			mcp.WithBoolean("include_doc_index", mcp.Description("Include docs index section (default true)")),
+			mcp.WithString("query", mcp.Description("Optional query for matching notes/summaries")),
+			mcp.WithNumber("query_note_limit", mcp.Description("Optional limit for matching notes (default 5)")),
+			mcp.WithNumber("query_summary_limit", mcp.Description("Optional limit for matching summaries (default 5)")),
+		),
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_ = ctx
+			summaryLimit := request.GetInt("summary_limit", defaultContextSnapshotSummaryLimit)
+			maxChars := request.GetInt("max_chars", defaultContextSnapshotMaxChars)
+			includeDocIndex := request.GetBool("include_doc_index", true)
+			summaryFull := request.GetBool("summary_full", false)
+			query := strings.TrimSpace(request.GetString("query", ""))
+			queryNoteLimit := request.GetInt("query_note_limit", 5)
+			querySummaryLimit := request.GetInt("query_summary_limit", 5)
+
+			if summaryLimit < 0 {
+				return mcp.NewToolResultError("summary_limit must be >= 0"), nil
+			}
+			if maxChars <= 0 {
+				return mcp.NewToolResultError("max_chars must be > 0"), nil
+			}
+			if queryNoteLimit < 0 || querySummaryLimit < 0 {
+				return mcp.NewToolResultError("query limits must be >= 0"), nil
+			}
+
+			text, err := buildContextSnapshotForMCP(
+				projectRoot,
+				cfg,
+				store,
+				summaryLimit,
+				summaryFull,
+				includeDocIndex,
+				query,
+				queryNoteLimit,
+				querySummaryLimit,
+				maxChars,
+			)
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("build context snapshot: %v", err)), nil
+			}
+			return mcp.NewToolResultStructuredOnly(map[string]any{
+				"snapshot": text,
 			}), nil
 		},
 	)
@@ -379,4 +501,259 @@ func normalizeDocArg(raw string) (string, error) {
 
 	filename, _, err := docs.NormalizeDocName(trimmed)
 	return filename, err
+}
+
+func clampLimit(limit int) int {
+	if limit <= 0 {
+		return defaultSearchLimit
+	}
+	if limit > maxSearchLimit {
+		return maxSearchLimit
+	}
+	return limit
+}
+
+func buildContextSnapshotForMCP(
+	projectRoot string,
+	cfg config.Config,
+	store *db.Store,
+	summaryLimit int,
+	summaryFull bool,
+	includeDocIndex bool,
+	query string,
+	queryNoteLimit int,
+	querySummaryLimit int,
+	maxChars int,
+) (string, error) {
+	var b strings.Builder
+
+	contextData, err := os.ReadFile(docs.DocPath(projectRoot, docs.ContextFilename))
+	if err != nil {
+		return "", err
+	}
+	contextBody := strings.TrimSpace(string(contextData))
+	if contextBody == "" {
+		contextBody = "TBD."
+	}
+	b.WriteString("=== .recall/context.md ===\n")
+	b.WriteString(contextBody)
+	b.WriteString("\n\n")
+
+	summaries := []db.Summary{}
+	if summaryLimit > 0 {
+		summaries, err = store.ListSummaries(summaryLimit, 0)
+		if err != nil {
+			return "", err
+		}
+	}
+	b.WriteString(fmt.Sprintf("=== recent summaries (last %d) ===\n", summaryLimit))
+	if summaryLimit == 0 {
+		b.WriteString("summary section disabled (--summary-limit=0)\n\n")
+	} else if len(summaries) == 0 {
+		b.WriteString("no summaries found\n\n")
+	} else {
+		for _, item := range summaries {
+			body := strings.TrimSpace(item.Body)
+			if body == "" {
+				body = "TBD."
+			}
+			if summaryFull {
+				b.WriteString(fmt.Sprintf(
+					"id:%d | note_id:%d | created_at:%s\n%s\n\n",
+					item.ID,
+					item.NoteID,
+					item.CreatedAt.UTC().Format(time.RFC3339),
+					body,
+				))
+			} else {
+				b.WriteString(fmt.Sprintf(
+					"id:%d | note_id:%d | created_at:%s | %s\n",
+					item.ID,
+					item.NoteID,
+					item.CreatedAt.UTC().Format(time.RFC3339),
+					summarizeText(body, contextSummaryPreviewChars),
+				))
+			}
+		}
+		b.WriteString("\n")
+	}
+
+	if includeDocIndex {
+		entries, err := docs.ListRegistered(projectRoot, cfg)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("=== docs index ===\n")
+		additional := 0
+		for _, entry := range entries {
+			if entry.Filename == docs.ContextFilename {
+				continue
+			}
+			additional++
+			if entry.Missing {
+				b.WriteString(fmt.Sprintf("%s | missing\n", entry.Filename))
+				continue
+			}
+			data, err := os.ReadFile(docs.DocPath(projectRoot, entry.Filename))
+			if err != nil {
+				return "", err
+			}
+			b.WriteString(fmt.Sprintf("%s | %s\n", entry.Filename, firstDocDescriptionLine(string(data))))
+		}
+		if additional == 0 {
+			b.WriteString("no additional docs registered\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if query != "" {
+		notes := []db.Note{}
+		if queryNoteLimit > 0 {
+			notes, err = store.SearchNotes(query, queryNoteLimit, 0)
+			if err != nil {
+				return "", err
+			}
+		}
+		b.WriteString(fmt.Sprintf("=== matching notes (query: %q) ===\n", query))
+		if len(notes) == 0 {
+			b.WriteString("no matching notes found\n\n")
+		} else {
+			for _, note := range notes {
+				parts := []string{
+					fmt.Sprintf("[#%d]", note.ID),
+					note.CreatedAt.UTC().Format(time.RFC3339),
+					summarizeText(note.Content, contextSummaryPreviewChars),
+				}
+				if note.LLM.Valid {
+					parts = append(parts, "llm="+note.LLM.String)
+				}
+				if note.Model.Valid {
+					parts = append(parts, "model="+note.Model.String)
+				}
+				b.WriteString(strings.Join(parts, " | "))
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
+		}
+
+		matchingSummaries := []db.Summary{}
+		if querySummaryLimit > 0 {
+			matchingSummaries, err = store.SearchSummaries(query, querySummaryLimit, 0)
+			if err != nil {
+				return "", err
+			}
+		}
+		b.WriteString(fmt.Sprintf("=== matching summaries (query: %q) ===\n", query))
+		if len(matchingSummaries) == 0 {
+			b.WriteString("no matching summaries found\n\n")
+		} else {
+			for _, item := range matchingSummaries {
+				b.WriteString(fmt.Sprintf(
+					"id:%d | note_id:%d | created_at:%s | %s\n",
+					item.ID,
+					item.NoteID,
+					item.CreatedAt.UTC().Format(time.RFC3339),
+					summarizeText(item.Body, contextSummaryPreviewChars),
+				))
+			}
+			b.WriteString("\n")
+		}
+	}
+
+	full := b.String()
+	if runeCount(full) <= maxChars {
+		return full, nil
+	}
+	return truncateByRunes(full, maxChars) + fmt.Sprintf(
+		"\n--- context truncated at %d chars ---\n",
+		maxChars,
+	), nil
+}
+
+func summarizeText(body string, maxChars int) string {
+	oneLine := strings.Join(strings.Fields(body), " ")
+	if len(oneLine) <= maxChars {
+		return oneLine
+	}
+	return oneLine[:maxChars] + "..."
+}
+
+func firstDocDescriptionLine(body string) string {
+	if summary := summaryFromSummaryLine(body); summary != "" {
+		return summarizeText(summary, contextSummaryPreviewChars)
+	}
+	if summary := summaryFromFrontmatter(body); summary != "" {
+		return summarizeText(summary, contextSummaryPreviewChars)
+	}
+	for _, raw := range strings.Split(body, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		return summarizeText(line, contextSummaryPreviewChars)
+	}
+	return "TBD."
+}
+
+func summaryFromSummaryLine(body string) string {
+	lines := strings.Split(body, "\n")
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(strings.ToLower(line), "summary:") {
+			continue
+		}
+
+		value := strings.TrimSpace(line[len("summary:"):])
+		chunks := make([]string, 0, 3)
+		if value != "" {
+			chunks = append(chunks, value)
+		}
+		for j := i + 1; j < len(lines) && len(chunks) < 3; j++ {
+			next := strings.TrimSpace(lines[j])
+			if next == "" || next == "---" || strings.HasPrefix(next, "#") || strings.Contains(next, ":") {
+				break
+			}
+			chunks = append(chunks, next)
+		}
+		if len(chunks) == 0 {
+			return ""
+		}
+		return strings.Join(chunks, " ")
+	}
+	return ""
+}
+
+func summaryFromFrontmatter(body string) string {
+	lines := strings.Split(body, "\n")
+	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
+		return ""
+	}
+	for i := 1; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "---" {
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(line), "summary:") {
+			return strings.TrimSpace(line[len("summary:"):])
+		}
+	}
+	return ""
+}
+
+func truncateByRunes(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) <= maxRunes {
+		return s
+	}
+	return string(r[:maxRunes])
+}
+
+func runeCount(s string) int {
+	return len([]rune(s))
 }

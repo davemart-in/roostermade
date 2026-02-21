@@ -22,11 +22,13 @@ const (
 )
 
 type Manifest struct {
-	ProjectName  string   `json:"project_name"`
-	ExportDate   string   `json:"export_date"`
-	NoteCount    int      `json:"note_count"`
-	SummaryCount int      `json:"summary_count"`
-	DocList      []string `json:"doc_list"`
+	ProjectName      string   `json:"project_name"`
+	ExportDate       string   `json:"export_date"`
+	NoteCount        int      `json:"note_count"`
+	SummaryCount     int      `json:"summary_count"`
+	SummaryThreshold int      `json:"summary_threshold"`
+	SummarizerCmd    string   `json:"summarizer_cmd,omitempty"`
+	DocList          []string `json:"doc_list"`
 }
 
 func EnsureExportDocsExist(projectRoot string, cfg config.Config) error {
@@ -50,17 +52,23 @@ func EnsureExportDocsExist(projectRoot string, cfg config.Config) error {
 func BuildManifest(cfg config.Config, noteCount, summaryCount int, now time.Time) Manifest {
 	docList := slices.Clone(cfg.Docs)
 	return Manifest{
-		ProjectName:  cfg.ProjectName,
-		ExportDate:   now.UTC().Format(time.RFC3339),
-		NoteCount:    noteCount,
-		SummaryCount: summaryCount,
-		DocList:      docList,
+		ProjectName:      cfg.ProjectName,
+		ExportDate:       now.UTC().Format(time.RFC3339),
+		NoteCount:        noteCount,
+		SummaryCount:     summaryCount,
+		SummaryThreshold: cfg.SummaryThreshold,
+		SummarizerCmd:    cfg.SummarizerCmd,
+		DocList:          docList,
 	}
 }
 
 func ResolveExportPath(projectRoot string, now time.Time) (string, error) {
 	date := now.Format("2006-01-02")
-	base := filepath.Join(projectRoot, fmt.Sprintf("recall-export-%s.zip", date))
+	baseDir := filepath.Join(config.DirPath(projectRoot), "exports")
+	if err := os.MkdirAll(baseDir, 0o755); err != nil {
+		return "", err
+	}
+	base := filepath.Join(baseDir, fmt.Sprintf("recall-export-%s.zip", date))
 
 	if _, err := os.Stat(base); errors.Is(err, os.ErrNotExist) {
 		return base, nil
@@ -69,7 +77,7 @@ func ResolveExportPath(projectRoot string, now time.Time) (string, error) {
 	}
 
 	for i := 2; ; i++ {
-		candidate := filepath.Join(projectRoot, fmt.Sprintf("recall-export-%s-%d.zip", date, i))
+		candidate := filepath.Join(baseDir, fmt.Sprintf("recall-export-%s-%d.zip", date, i))
 		if _, err := os.Stat(candidate); errors.Is(err, os.ErrNotExist) {
 			return candidate, nil
 		} else if err != nil {
@@ -154,6 +162,9 @@ func ParseAndValidateManifest(data []byte) (Manifest, error) {
 	if manifest.SummaryCount < 0 {
 		return Manifest{}, errors.New("manifest summary_count must be >= 0")
 	}
+	if manifest.SummaryThreshold <= 0 {
+		return Manifest{}, errors.New("manifest summary_threshold must be > 0")
+	}
 	if manifest.DocList == nil {
 		return Manifest{}, errors.New("manifest missing doc_list")
 	}
@@ -226,6 +237,8 @@ func WriteImportedRecall(projectRoot string, entries map[string]*zip.File, manif
 
 	cfg := config.Default(projectRoot)
 	cfg.ProjectName = manifest.ProjectName
+	cfg.SummaryThreshold = manifest.SummaryThreshold
+	cfg.SummarizerCmd = strings.TrimSpace(manifest.SummarizerCmd)
 	cfg.Docs = slices.Clone(manifest.DocList)
 	cfg.Initialized = true
 

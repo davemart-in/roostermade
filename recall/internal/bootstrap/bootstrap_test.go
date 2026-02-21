@@ -67,6 +67,9 @@ func TestEnsureProjectInitializedCreatesDefaults(t *testing.T) {
 	if !strings.Contains(string(recallGitignoreData), "recall.db") {
 		t.Fatalf("expected .recall/.gitignore to include recall.db")
 	}
+	if !strings.Contains(string(recallGitignoreData), "exports/") {
+		t.Fatalf("expected .recall/.gitignore to include exports/")
+	}
 }
 
 func TestEnsureProjectInitializedIsIdempotent(t *testing.T) {
@@ -105,6 +108,9 @@ func TestEnsureProjectInitializedIsIdempotent(t *testing.T) {
 	}
 	if got := strings.Count(string(recallGitignoreData), "recall.db"); got != 1 {
 		t.Fatalf("expected exactly one recall.db entry in .recall/.gitignore, got %d", got)
+	}
+	if got := strings.Count(string(recallGitignoreData), "exports/"); got != 1 {
+		t.Fatalf("expected exactly one exports/ entry in .recall/.gitignore, got %d", got)
 	}
 }
 

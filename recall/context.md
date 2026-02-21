@@ -84,13 +84,15 @@ recall note get <id>
 recall summary add               # manually trigger summarization
 recall summary list
 recall summary get <id>
+recall summary search <query>
 
 recall doc add <name>            # create and register a doc
 recall doc edit <name>           # open in $EDITOR
 recall doc list
+recall doc get <name>
 
 recall context                   # print context snapshot (context + summaries + doc index)
-recall export                    # outputs recall-export-[date].zip
+recall export                    # outputs .recall/exports/recall-export-[date].zip
 recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values
 ```
@@ -104,9 +106,12 @@ When running as an MCP server (`recall mcp`), the following tools are exposed ov
 note_add(content, llm, model)
 note_list()
 note_get(id)
+note_search(query)
 summary_add()
 summary_list()
+summary_search(query)
 context_get()
+context_snapshot(...)
 doc_get(name)
 doc_list()
 ```

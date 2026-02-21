@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ func newDocCmd() *cobra.Command {
 		newDocAddCmd(),
 		newDocEditCmd(),
 		newDocListCmd(),
+		newDocGetCmd(),
 	)
 
 	return docCmd
@@ -157,6 +159,40 @@ func newDocListCmd() *cobra.Command {
 				cmd.Printf("%s | modified:%s\n", entry.Filename, entry.ModifiedAt.Format(time.RFC3339))
 			}
 
+			return nil
+		},
+	}
+}
+
+func newDocGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <name>",
+		Short: "Print a registered doc",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			cfg, err := ensureProjectAndLoadConfig(cwd)
+			if err != nil {
+				return err
+			}
+			filename, _, err := docs.NormalizeDocName(args[0])
+			if err != nil {
+				return err
+			}
+			if !slices.Contains(cfg.Docs, filename) {
+				return fmt.Errorf("doc %s is not registered", filename)
+			}
+			data, err := os.ReadFile(docs.DocPath(cwd, filename))
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("doc %s not found", filename)
+				}
+				return err
+			}
+			cmd.Println(string(data))
 			return nil
 		},
 	}

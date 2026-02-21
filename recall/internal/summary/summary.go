@@ -2,16 +2,20 @@ package summary
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/roostermade/recall/internal/db"
 )
 
 const summarizerEnvVar = "RECALL_SUMMARIZER_CMD"
+const summarizerTimeoutEnvVar = "RECALL_SUMMARIZER_TIMEOUT"
+const defaultSummarizerTimeout = 90 * time.Second
 
 func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
 	return GenerateAndStoreWithCommand(store, "")
@@ -51,7 +55,14 @@ func RunSummarizerCommandWith(configuredCmd string, prompt string) (string, erro
 		return "", fmt.Errorf("%s is not set and config has no summarizer_cmd", summarizerEnvVar)
 	}
 
-	cmd := exec.Command("sh", "-c", command)
+	timeout, err := resolveSummarizerTimeout()
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", command)
 	cmd.Stdin = strings.NewReader(prompt)
 
 	var stdout bytes.Buffer
@@ -60,6 +71,9 @@ func RunSummarizerCommandWith(configuredCmd string, prompt string) (string, erro
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return "", fmt.Errorf("summarizer command timed out after %s", timeout)
+		}
 		errText := strings.TrimSpace(stderr.String())
 		if errText == "" {
 			return "", fmt.Errorf("summarizer command failed: %w", err)
@@ -81,6 +95,18 @@ func resolveSummarizerCommand(configuredCmd string) string {
 		return fromEnv
 	}
 	return strings.TrimSpace(configuredCmd)
+}
+
+func resolveSummarizerTimeout() (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(summarizerTimeoutEnvVar))
+	if raw == "" {
+		return defaultSummarizerTimeout, nil
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("%s must be a positive duration (example: 90s)", summarizerTimeoutEnvVar)
+	}
+	return d, nil
 }
 
 func buildPrompt(notes []db.Note) string {

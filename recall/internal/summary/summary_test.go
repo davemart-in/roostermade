@@ -41,6 +41,19 @@ func TestRunSummarizerCommandReturnsTrimmedStdout(t *testing.T) {
 	}
 }
 
+func TestRunSummarizerCommandTimeout(t *testing.T) {
+	t.Setenv(summarizerEnvVar, "sleep 1")
+	t.Setenv(summarizerTimeoutEnvVar, "10ms")
+
+	_, err := RunSummarizerCommand("prompt")
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("expected timeout error, got: %v", err)
+	}
+}
+
 func TestGenerateAndStoreNoUnsummarizedNotes(t *testing.T) {
 	conn, err := db.Open(filepath.Join(t.TempDir(), "recall.db"))
 	if err != nil {

@@ -114,6 +114,7 @@ func newImportCmd() *cobra.Command {
 			if err := transfer.WriteImportedRecall(cwd, entries, manifest); err != nil {
 				return err
 			}
+			warnIfSummarizerCommandMissing(cmd.ErrOrStderr(), cwd, manifest.SummarizerCmd)
 
 			// Ensure .gitignore contains .recall/recall.db after import.
 			if _, err := bootstrap.EnsureBaseArtifacts(cwd); err != nil {
@@ -125,6 +126,31 @@ func newImportCmd() *cobra.Command {
 			cmd.Printf("docs imported: %d\n", len(manifest.DocList))
 			return nil
 		},
+	}
+}
+
+func warnIfSummarizerCommandMissing(errOut io.Writer, projectRoot string, command string) {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return
+	}
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return
+	}
+	candidate := fields[0]
+	if !(strings.Contains(candidate, "/") || strings.HasPrefix(candidate, ".")) {
+		return
+	}
+	if !filepath.IsAbs(candidate) {
+		candidate = filepath.Join(projectRoot, candidate)
+	}
+	if _, err := os.Stat(candidate); err != nil {
+		fmt.Fprintf(
+			errOut,
+			"warning: imported summarizer command not found on this machine: %s\n",
+			candidate,
+		)
 	}
 }
 

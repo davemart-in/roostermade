@@ -15,6 +15,10 @@ func TestResolveExportPathAppendsSuffix(t *testing.T) {
 	now := time.Date(2026, 2, 21, 10, 0, 0, 0, time.UTC)
 
 	first := filepath.Join(root, "recall-export-2026-02-21.zip")
+	if err := os.MkdirAll(filepath.Join(root, config.DirName, "exports"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	first = filepath.Join(root, config.DirName, "exports", "recall-export-2026-02-21.zip")
 	if err := os.WriteFile(first, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +27,7 @@ func TestResolveExportPathAppendsSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve export path: %v", err)
 	}
-	want := filepath.Join(root, "recall-export-2026-02-21-2.zip")
+	want := filepath.Join(root, config.DirName, "exports", "recall-export-2026-02-21-2.zip")
 	if second != want {
 		t.Fatalf("expected %s, got %s", want, second)
 	}
@@ -35,6 +39,8 @@ func TestParseAndValidateManifest(t *testing.T) {
   "export_date":"2026-02-21T10:00:00Z",
   "note_count":1,
   "summary_count":2,
+  "summary_threshold":10,
+  "summarizer_cmd":"./.recall/bin/summarize.sh",
   "doc_list":["context.md"]
 }`)
 
@@ -85,11 +91,12 @@ func TestFindRequiredImportEntries(t *testing.T) {
 	defer zr.Close()
 
 	entries, err := FindRequiredImportEntries(zr, Manifest{
-		ProjectName:  "p",
-		ExportDate:   "2026-02-21T10:00:00Z",
-		NoteCount: 0,
-		SummaryCount: 0,
-		DocList:      []string{"context.md"},
+		ProjectName:      "p",
+		ExportDate:       "2026-02-21T10:00:00Z",
+		NoteCount:        0,
+		SummaryCount:     0,
+		SummaryThreshold: 10,
+		DocList:          []string{"context.md"},
 	})
 	if err != nil {
 		t.Fatalf("find required entries: %v", err)

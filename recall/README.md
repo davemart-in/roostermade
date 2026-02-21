@@ -62,7 +62,7 @@ recall note list
 
 ### Summaries
 
-- `recall summary add`
+- `recall summary add` (generate summary for unsummarized notes)
 - `recall summary list`
 - `recall summary get <id>`
 - `recall summary search <query>`
@@ -72,6 +72,7 @@ recall note list
 - `recall doc add <name>`
 - `recall doc edit <name>`
 - `recall doc list`
+- `recall doc get <name>`
 
 Note: new docs created by Recall start with a `Summary:` line.
 
@@ -90,9 +91,13 @@ Read-only keys:
 - `docs`
 - `initialized`
 
+Useful env vars:
+- `RECALL_SUMMARIZER_CMD` (override summarizer command)
+- `RECALL_SUMMARIZER_TIMEOUT` (example: `90s`, `2m`)
+
 ### Backup
 
-- `recall export`
+- `recall export` (creates a zip in `.recall/exports/`)
 - `recall import <zipfile>`
 
 ## `recall context` Options
@@ -128,6 +133,12 @@ If you use Claude Code:
 claude mcp add recall -- /absolute/path/to/recall mcp
 claude mcp list
 ```
+
+MCP tools:
+- `note_add`, `note_list`, `note_get`, `note_search`
+- `summary_add`, `summary_list`, `summary_search`
+- `context_get`, `context_snapshot`
+- `doc_get`, `doc_list`
 
 ## If You See This Error
 

@@ -25,7 +25,7 @@ Note
   recall note search <query>       Search notes by content
 
 Summary
-  recall summary add               Summarize unsummarized notes
+  recall summary add               Generate summary for unsummarized notes
   recall summary list              List summaries
   recall summary get <id>          Get summary details
   recall summary search <query>    Search summaries by body
@@ -34,6 +34,7 @@ Doc
   recall doc add <name>            Create and register a doc
   recall doc edit <name>           Open a doc in $EDITOR
   recall doc list                  List registered docs
+  recall doc get <name>            Print a registered doc
 `
 
 func newManCmd() *cobra.Command {
