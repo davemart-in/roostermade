@@ -72,6 +72,81 @@ Example:
 export RECALL_SUMMARIZER_CMD='cat > /tmp/recall-last-prompt.txt && printf "[#1] Summarized manually.\n"'
 ```
 
+### Provider Wrappers
+
+Ready-to-use wrappers are included in `scripts/`:
+
+- `scripts/summarize-claude.sh`
+- `scripts/summarize-codex.sh`
+- `scripts/summarize-cursor.sh`
+
+All wrappers are fail-fast: if the underlying provider CLI/API is unavailable or returns an error, the wrapper exits non-zero and prints actionable diagnostics to stderr.
+
+1. Claude Code wrapper
+
+Prerequisites:
+- `claude` installed and available in `PATH`
+- authenticated via `claude auth`
+
+Setup:
+
+```bash
+chmod +x scripts/summarize-claude.sh
+export RECALL_SUMMARIZER_CMD="$PWD/scripts/summarize-claude.sh"
+```
+
+Optional:
+- `RECALL_CLAUDE_MODEL` (example: `claude-sonnet-4-6`)
+
+2. Codex CLI wrapper
+
+Prerequisites:
+- `codex` installed and available in `PATH`
+- authenticated via `codex login`
+
+Setup:
+
+```bash
+chmod +x scripts/summarize-codex.sh
+export RECALL_SUMMARIZER_CMD="$PWD/scripts/summarize-codex.sh"
+```
+
+Optional:
+- `RECALL_CODEX_MODEL`
+
+3. Cursor API wrapper
+
+Prerequisites:
+- `curl` and `jq` installed
+- `CURSOR_API_KEY` exported
+
+Setup:
+
+```bash
+chmod +x scripts/summarize-cursor.sh
+export CURSOR_API_KEY="your-cursor-api-key"
+export RECALL_SUMMARIZER_CMD="$PWD/scripts/summarize-cursor.sh"
+```
+
+Optional:
+- `RECALL_CURSOR_MODEL` (default: `gpt-4.1-mini`)
+- `RECALL_CURSOR_API_URL` (default: `https://api.cursor.com/v1/chat/completions`)
+
+### Wrapper Validation
+
+Smoke test wrapper output:
+
+```bash
+printf "Thoughts:\n[#1] Investigated flaky CI behavior\n" | "$RECALL_SUMMARIZER_CMD"
+```
+
+Then verify Recall integration:
+
+```bash
+recall thought add "Investigated flaky CI behavior"
+recall summary add
+```
+
 ## Command Reference
 
 ### Core
