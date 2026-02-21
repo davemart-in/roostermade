@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Go build artifacts
+/recall
+*.test
+*.out
+
+# Recall runtime DB (docs in .recall stay trackable)
+.recall/recall.db
