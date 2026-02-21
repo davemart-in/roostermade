@@ -11,6 +11,7 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newThoughtCmd())
+	cmd.AddCommand(newSummaryCmd())
 
 	return cmd
 }

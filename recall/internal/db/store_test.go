@@ -209,3 +209,33 @@ func TestCountUnsummarizedThoughtsUsesSummaryHighWaterMark(t *testing.T) {
 		t.Fatalf("expected 1 unsummarized thought, got %d", count)
 	}
 }
+
+func TestListUnsummarizedThoughtsUsesSummaryHighWaterMarkAndAscendingOrder(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "recall.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+
+	store := NewStore(conn)
+
+	for _, content := range []string{"t1", "t2", "t3", "t4"} {
+		if _, err := store.CreateThought(content, nil, nil); err != nil {
+			t.Fatalf("create thought %q: %v", content, err)
+		}
+	}
+	if _, err := store.CreateSummary(2, "covers through thought 2"); err != nil {
+		t.Fatalf("create summary: %v", err)
+	}
+
+	unsummarized, err := store.ListUnsummarizedThoughts()
+	if err != nil {
+		t.Fatalf("list unsummarized thoughts: %v", err)
+	}
+	if len(unsummarized) != 2 {
+		t.Fatalf("expected 2 unsummarized thoughts, got %d", len(unsummarized))
+	}
+	if unsummarized[0].ID != 3 || unsummarized[1].ID != 4 {
+		t.Fatalf("expected ascending unsummarized ids [3,4], got [%d,%d]", unsummarized[0].ID, unsummarized[1].ID)
+	}
+}

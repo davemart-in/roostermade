@@ -202,6 +202,32 @@ func (s *Store) CountUnsummarizedThoughts() (int, error) {
 	return count, nil
 }
 
+func (s *Store) ListUnsummarizedThoughts() ([]Thought, error) {
+	rows, err := s.db.Query(
+		`SELECT id, content, llm, model, created_at FROM thoughts
+         WHERE id > COALESCE((SELECT MAX(thought_id) FROM summaries), 0)
+         ORDER BY id ASC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	thoughts := make([]Thought, 0)
+	for rows.Next() {
+		thought, err := scanThought(rows)
+		if err != nil {
+			return nil, err
+		}
+		thoughts = append(thoughts, thought)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return thoughts, nil
+}
+
 func sanitizeListParams(limit, offset int) (int, int) {
 	if limit <= 0 {
 		limit = defaultListLimit
