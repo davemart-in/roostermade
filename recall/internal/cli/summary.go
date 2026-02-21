@@ -25,6 +25,7 @@ func newSummaryCmd() *cobra.Command {
 		newSummaryAddCmd(),
 		newSummaryListCmd(),
 		newSummaryGetCmd(),
+		newSummarySearchCmd(),
 	)
 
 	return summaryCmd
@@ -33,7 +34,7 @@ func newSummaryCmd() *cobra.Command {
 func newSummaryAddCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "add",
-		Short: "Manually trigger summarization of unsummarized thoughts",
+		Short: "Manually trigger summarization of unsummarized notes",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			cwd, err := os.Getwd()
 			if err != nil {
@@ -51,12 +52,12 @@ func newSummaryAddCmd() *cobra.Command {
 				return err
 			}
 			if !didSummarize {
-				cmd.Println("no unsummarized thoughts")
+				cmd.Println("no unsummarized notes")
 				return nil
 			}
 
 			cmd.Printf("created summary #%d\n", createdSummary.ID)
-			cmd.Printf("through thought #%d\n", createdSummary.ThoughtID)
+			cmd.Printf("through note #%d\n", createdSummary.NoteID)
 			cmd.Printf("created_at: %s\n", createdSummary.CreatedAt.Format(time.RFC3339))
 			return nil
 		},
@@ -91,9 +92,9 @@ func newSummaryListCmd() *cobra.Command {
 			for _, item := range summaries {
 				preview := summarizePreview(item.Body, summaryPreviewChars)
 				cmd.Printf(
-					"id:%d | thought_id:%d | created_at:%s | %s\n",
+					"id:%d | note_id:%d | created_at:%s | %s\n",
 					item.ID,
-					item.ThoughtID,
+					item.NoteID,
 					item.CreatedAt.Format(time.RFC3339),
 					preview,
 				)
@@ -135,10 +136,56 @@ func newSummaryGetCmd() *cobra.Command {
 			}
 
 			cmd.Printf("id: %d\n", item.ID)
-			cmd.Printf("thought_id: %d\n", item.ThoughtID)
+			cmd.Printf("note_id: %d\n", item.NoteID)
 			cmd.Printf("created_at: %s\n", item.CreatedAt.Format(time.RFC3339))
 			cmd.Printf("body:\n%s\n", item.Body)
 
+			return nil
+		},
+	}
+}
+
+func newSummarySearchCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "search <query>",
+		Short: "Search summaries by body",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			query := strings.TrimSpace(args[0])
+			if query == "" {
+				return errors.New("query cannot be empty")
+			}
+
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+
+			store, _, closeDB, err := openStore(cwd)
+			if err != nil {
+				return err
+			}
+			defer closeDB()
+
+			summaries, err := store.SearchSummaries(query, 100, 0)
+			if err != nil {
+				return err
+			}
+			if len(summaries) == 0 {
+				cmd.Println("no matching summaries found")
+				return nil
+			}
+
+			for _, item := range summaries {
+				preview := summarizePreview(item.Body, summaryPreviewChars)
+				cmd.Printf(
+					"id:%d | note_id:%d | created_at:%s | %s\n",
+					item.ID,
+					item.NoteID,
+					item.CreatedAt.Format(time.RFC3339),
+					preview,
+				)
+			}
 			return nil
 		},
 	}

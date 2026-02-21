@@ -22,7 +22,7 @@ func newStatusCmd() *cobra.Command {
 			}
 			defer closeDB()
 
-			thoughtCount, err := store.CountThoughts()
+			noteCount, err := store.CountNotes()
 			if err != nil {
 				return err
 			}
@@ -30,14 +30,14 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			unsummarizedCount, err := store.CountUnsummarizedThoughts()
+			unsummarizedCount, err := store.CountUnsummarizedNotes()
 			if err != nil {
 				return err
 			}
 
-			cmd.Printf("thoughts: %d\n", thoughtCount)
+			cmd.Printf("notes: %d\n", noteCount)
 			cmd.Printf("summaries: %d\n", summaryCount)
-			cmd.Printf("unsummarized_thoughts: %d\n", unsummarizedCount)
+			cmd.Printf("unsummarized_notes: %d\n", unsummarizedCount)
 			cmd.Printf("docs: %d\n", len(cfg.Docs))
 			return nil
 		},

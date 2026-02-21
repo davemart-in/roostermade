@@ -10,7 +10,7 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	cmd.AddCommand(newThoughtCmd())
+	cmd.AddCommand(newNoteCmd())
 	cmd.AddCommand(newSummaryCmd())
 	cmd.AddCommand(newDocCmd())
 	cmd.AddCommand(newInitCmd())

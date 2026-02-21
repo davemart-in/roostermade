@@ -6,7 +6,7 @@ const manText = `Recall Command Reference
 
 Core
   recall init                      Guided setup + context/doc planning
-  recall status                    Show thought/summary/doc counts
+  recall status                    Show note/summary/doc counts
   recall man                       Show this command reference
   recall config                    Interactive config and doc selection editor
   recall context                   Print assembled context bundle (core docs + extras)
@@ -14,16 +14,18 @@ Core
   recall export                    Export recall data to zip
   recall import <zipfile>          Import recall data from zip
 
-Thought
-  recall thought add "<content>" [--llm <provider>] [--model <model>]
-                                   Add a thought
-  recall thought list              List thoughts
-  recall thought get <id>          Get thought details
+Note
+  recall note add "<content>" [--llm <provider>] [--model <model>]
+                                   Add a note
+  recall note list                 List notes
+  recall note get <id>             Get note details
+  recall note search <query>       Search notes by content
 
 Summary
-  recall summary add               Summarize unsummarized thoughts
+  recall summary add               Summarize unsummarized notes
   recall summary list              List summaries
   recall summary get <id>          Get summary details
+  recall summary search <query>    Search summaries by body
 
 Doc
   recall doc add <name>            Create and register a doc

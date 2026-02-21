@@ -93,16 +93,12 @@ func EnsureRecallBlock(projectRoot, filename string) (string, error) {
 func BuildRecallBlock() string {
 	return strings.TrimSpace(
 		"<!-- RECALL_MANAGED_BLOCK_START -->\n" +
-			"## Recall Integration (HIGHLY recommended)\n\n" +
-			"Recall is available in this repository and provides persistent project-scoped memory.\n\n" +
-			"- Persistent memory is available through Recall (`recall context`, `recall thought add`, summaries, and docs).\n" +
-			"- General tools are available and can be used anytime.\n" +
-			"- If MCP is enabled for this project, Recall MCP tools are available.\n\n" +
-			"HIGHLY recommended workflow:\n" +
-			"1. At session start, load memory with `recall context`.\n" +
-			"2. After each successful completion of a user prompt/task, record a thought:\n" +
-			"   `recall thought add \"<what was completed>\"`\n" +
-			"3. Continue using normal tools as needed; Recall can be used at any time.\n" +
+			"## Recall Integration\n\n" +
+			"Use Recall for persistent project memory across sessions and context compaction.\n" +
+			"At session start run `recall context` (loads core docs plus registered project docs).\n" +
+			"After each successful task, run `recall note add \"<what changed or was decided>\"`.\n" +
+			"Use `recall summary list` / `recall summary get <id>` for compressed history.\n" +
+			"General tools remain available anytime; if MCP is enabled, Recall MCP tools are available too.\n" +
 			"<!-- RECALL_MANAGED_BLOCK_END -->",
 	)
 }

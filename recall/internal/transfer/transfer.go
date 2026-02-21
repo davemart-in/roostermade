@@ -24,7 +24,7 @@ const (
 type Manifest struct {
 	ProjectName  string   `json:"project_name"`
 	ExportDate   string   `json:"export_date"`
-	ThoughtCount int      `json:"thought_count"`
+	NoteCount    int      `json:"note_count"`
 	SummaryCount int      `json:"summary_count"`
 	DocList      []string `json:"doc_list"`
 }
@@ -47,12 +47,12 @@ func EnsureExportDocsExist(projectRoot string, cfg config.Config) error {
 	return nil
 }
 
-func BuildManifest(cfg config.Config, thoughtCount, summaryCount int, now time.Time) Manifest {
+func BuildManifest(cfg config.Config, noteCount, summaryCount int, now time.Time) Manifest {
 	docList := slices.Clone(cfg.Docs)
 	return Manifest{
 		ProjectName:  cfg.ProjectName,
 		ExportDate:   now.UTC().Format(time.RFC3339),
-		ThoughtCount: thoughtCount,
+		NoteCount:    noteCount,
 		SummaryCount: summaryCount,
 		DocList:      docList,
 	}
@@ -148,8 +148,8 @@ func ParseAndValidateManifest(data []byte) (Manifest, error) {
 	if _, err := time.Parse(time.RFC3339, manifest.ExportDate); err != nil {
 		return Manifest{}, fmt.Errorf("manifest export_date must be RFC3339: %w", err)
 	}
-	if manifest.ThoughtCount < 0 {
-		return Manifest{}, errors.New("manifest thought_count must be >= 0")
+	if manifest.NoteCount < 0 {
+		return Manifest{}, errors.New("manifest note_count must be >= 0")
 	}
 	if manifest.SummaryCount < 0 {
 		return Manifest{}, errors.New("manifest summary_count must be >= 0")

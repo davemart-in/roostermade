@@ -37,7 +37,7 @@ func newExportCmd() *cobra.Command {
 				return err
 			}
 
-			thoughtCount, err := store.CountThoughts()
+			noteCount, err := store.CountNotes()
 			if err != nil {
 				return err
 			}
@@ -47,7 +47,7 @@ func newExportCmd() *cobra.Command {
 			}
 
 			now := time.Now()
-			manifest := transfer.BuildManifest(cfg, thoughtCount, summaryCount, now)
+			manifest := transfer.BuildManifest(cfg, noteCount, summaryCount, now)
 			outputPath, err := transfer.ResolveExportPath(cwd, now)
 			if err != nil {
 				return err

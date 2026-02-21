@@ -24,7 +24,7 @@ const (
 	serverVersion = "0.1.0"
 )
 
-type thoughtPayload struct {
+type notePayload struct {
 	ID        int64   `json:"id"`
 	Content   string  `json:"content"`
 	LLM       *string `json:"llm,omitempty"`
@@ -34,7 +34,7 @@ type thoughtPayload struct {
 
 type summaryPayload struct {
 	ID        int64  `json:"id"`
-	ThoughtID int64  `json:"thought_id"`
+	NoteID    int64  `json:"note_id"`
 	Body      string `json:"body"`
 	CreatedAt string `json:"created_at"`
 }
@@ -71,11 +71,11 @@ func RunStdio(projectRoot string) error {
 func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, cfg config.Config) {
 	srv.AddTool(
 		mcp.NewTool(
-			"thought_add",
-			mcp.WithDescription("Add a thought to recall"),
-			mcp.WithString("content", mcp.Required(), mcp.Description("Thought content")),
-			mcp.WithString("llm", mcp.Description("Optional LLM/provider for this thought")),
-			mcp.WithString("model", mcp.Description("Optional model name for this thought")),
+			"note_add",
+			mcp.WithDescription("Add a note to recall"),
+			mcp.WithString("content", mcp.Required(), mcp.Description("Note content")),
+			mcp.WithString("llm", mcp.Description("Optional LLM/provider for this note")),
+			mcp.WithString("model", mcp.Description("Optional model name for this note")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			_ = ctx
@@ -86,24 +86,24 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 
 			content = strings.TrimSpace(content)
 			if content == "" {
-				return mcp.NewToolResultError("thought content cannot be empty"), nil
+				return mcp.NewToolResultError("note content cannot be empty"), nil
 			}
 
 			llm := optionalString(request.GetString("llm", ""))
 			model := optionalString(request.GetString("model", ""))
 
-			thought, err := store.CreateThought(content, llm, model)
+			note, err := store.CreateNote(content, llm, model)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("create thought: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("create note: %v", err)), nil
 			}
 
 			result := map[string]any{
-				"thought": toThoughtPayload(thought),
+				"note": toNotePayload(note),
 			}
 
-			unsummarizedCount, err := store.CountUnsummarizedThoughts()
+			unsummarizedCount, err := store.CountUnsummarizedNotes()
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("count unsummarized thoughts: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("count unsummarized notes: %v", err)), nil
 			}
 			if unsummarizedCount > cfg.SummaryThreshold {
 				createdSummary, didSummarize, err := summary.GenerateAndStoreWithCommand(store, cfg.SummarizerCmd)
@@ -120,34 +120,34 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 
 	srv.AddTool(
 		mcp.NewTool(
-			"thought_list",
-			mcp.WithDescription("List thoughts"),
+			"note_list",
+			mcp.WithDescription("List notes"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			_ = ctx
 			_ = request
 
-			thoughts, err := store.ListThoughts(100, 0)
+			notes, err := store.ListNotes(100, 0)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("list thoughts: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("list notes: %v", err)), nil
 			}
 
-			items := make([]thoughtPayload, 0, len(thoughts))
-			for _, thought := range thoughts {
-				items = append(items, toThoughtPayload(thought))
+			items := make([]notePayload, 0, len(notes))
+			for _, note := range notes {
+				items = append(items, toNotePayload(note))
 			}
 
 			return mcp.NewToolResultStructuredOnly(map[string]any{
-				"thoughts": items,
+				"notes": items,
 			}), nil
 		},
 	)
 
 	srv.AddTool(
 		mcp.NewTool(
-			"thought_get",
-			mcp.WithDescription("Get a thought by id"),
-			mcp.WithNumber("id", mcp.Required(), mcp.Description("Thought id")),
+			"note_get",
+			mcp.WithDescription("Get a note by id"),
+			mcp.WithNumber("id", mcp.Required(), mcp.Description("Note id")),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			_ = ctx
@@ -156,19 +156,19 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 				return mcp.NewToolResultError(err.Error()), nil
 			}
 			if id <= 0 {
-				return mcp.NewToolResultError(fmt.Sprintf("invalid thought id: %d", id)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("invalid note id: %d", id)), nil
 			}
 
-			thought, err := store.GetThought(int64(id))
+			note, err := store.GetNote(int64(id))
 			if errors.Is(err, sql.ErrNoRows) {
-				return mcp.NewToolResultError(fmt.Sprintf("thought %d not found", id)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("note %d not found", id)), nil
 			}
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("get thought: %v", err)), nil
+				return mcp.NewToolResultError(fmt.Sprintf("get note: %v", err)), nil
 			}
 
 			return mcp.NewToolResultStructuredOnly(map[string]any{
-				"thought": toThoughtPayload(thought),
+				"note": toNotePayload(note),
 			}), nil
 		},
 	)
@@ -176,7 +176,7 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 	srv.AddTool(
 		mcp.NewTool(
 			"summary_add",
-			mcp.WithDescription("Summarize unsummarized thoughts"),
+			mcp.WithDescription("Summarize unsummarized notes"),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			_ = ctx
@@ -189,7 +189,7 @@ func registerTools(srv *server.MCPServer, projectRoot string, store *db.Store, c
 			if !didSummarize {
 				return mcp.NewToolResultStructuredOnly(map[string]any{
 					"created": false,
-					"message": "no unsummarized thoughts",
+					"message": "no unsummarized notes",
 				}), nil
 			}
 
@@ -339,8 +339,8 @@ func optionalString(raw string) *string {
 	return &trimmed
 }
 
-func toThoughtPayload(in db.Thought) thoughtPayload {
-	return thoughtPayload{
+func toNotePayload(in db.Note) notePayload {
+	return notePayload{
 		ID:        in.ID,
 		Content:   in.Content,
 		LLM:       nullStringToPtr(in.LLM),
@@ -352,7 +352,7 @@ func toThoughtPayload(in db.Thought) thoughtPayload {
 func toSummaryPayload(in db.Summary) summaryPayload {
 	return summaryPayload{
 		ID:        in.ID,
-		ThoughtID: in.ThoughtID,
+		NoteID:    in.NoteID,
 		Body:      in.Body,
 		CreatedAt: in.CreatedAt.UTC().Format(time.RFC3339),
 	}

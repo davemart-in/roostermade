@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -13,7 +14,7 @@ type Store struct {
 	db *sql.DB
 }
 
-type Thought struct {
+type Note struct {
 	ID        int64
 	Content   string
 	LLM       sql.NullString
@@ -23,7 +24,7 @@ type Thought struct {
 
 type Summary struct {
 	ID        int64
-	ThoughtID int64
+	NoteID    int64
 	Body      string
 	CreatedAt time.Time
 }
@@ -36,31 +37,31 @@ func NewStore(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-func (s *Store) CreateThought(content string, llm, model *string) (Thought, error) {
+func (s *Store) CreateNote(content string, llm, model *string) (Note, error) {
 	row := s.db.QueryRow(
-		`INSERT INTO thoughts (content, llm, model) VALUES (?, ?, ?) RETURNING id, content, llm, model, created_at`,
+		`INSERT INTO notes (content, llm, model) VALUES (?, ?, ?) RETURNING id, content, llm, model, created_at`,
 		content,
 		nullableString(llm),
 		nullableString(model),
 	)
 
-	return scanThought(row)
+	return scanNote(row)
 }
 
-func (s *Store) GetThought(id int64) (Thought, error) {
+func (s *Store) GetNote(id int64) (Note, error) {
 	row := s.db.QueryRow(
-		`SELECT id, content, llm, model, created_at FROM thoughts WHERE id = ?`,
+		`SELECT id, content, llm, model, created_at FROM notes WHERE id = ?`,
 		id,
 	)
 
-	return scanThought(row)
+	return scanNote(row)
 }
 
-func (s *Store) ListThoughts(limit, offset int) ([]Thought, error) {
+func (s *Store) ListNotes(limit, offset int) ([]Note, error) {
 	limit, offset = sanitizeListParams(limit, offset)
 
 	rows, err := s.db.Query(
-		`SELECT id, content, llm, model, created_at FROM thoughts ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT id, content, llm, model, created_at FROM notes ORDER BY id DESC LIMIT ? OFFSET ?`,
 		limit,
 		offset,
 	)
@@ -69,36 +70,73 @@ func (s *Store) ListThoughts(limit, offset int) ([]Thought, error) {
 	}
 	defer rows.Close()
 
-	thoughts := make([]Thought, 0)
+	notes := make([]Note, 0)
 	for rows.Next() {
-		thought, err := scanThought(rows)
+		note, err := scanNote(rows)
 		if err != nil {
 			return nil, err
 		}
-		thoughts = append(thoughts, thought)
+		notes = append(notes, note)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return thoughts, nil
+	return notes, nil
 }
 
-func (s *Store) UpdateThought(id int64, content string, llm, model *string) (Thought, error) {
+func (s *Store) SearchNotes(query string, limit, offset int) ([]Note, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, errors.New("query cannot be empty")
+	}
+
+	limit, offset = sanitizeListParams(limit, offset)
+	rows, err := s.db.Query(
+		`SELECT id, content, llm, model, created_at
+		 FROM notes
+		 WHERE instr(lower(content), lower(?)) > 0
+		 ORDER BY id DESC
+		 LIMIT ? OFFSET ?`,
+		query,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	notes := make([]Note, 0)
+	for rows.Next() {
+		note, err := scanNote(rows)
+		if err != nil {
+			return nil, err
+		}
+		notes = append(notes, note)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return notes, nil
+}
+
+func (s *Store) UpdateNote(id int64, content string, llm, model *string) (Note, error) {
 	row := s.db.QueryRow(
-		`UPDATE thoughts SET content = ?, llm = ?, model = ? WHERE id = ? RETURNING id, content, llm, model, created_at`,
+		`UPDATE notes SET content = ?, llm = ?, model = ? WHERE id = ? RETURNING id, content, llm, model, created_at`,
 		content,
 		nullableString(llm),
 		nullableString(model),
 		id,
 	)
 
-	return scanThought(row)
+	return scanNote(row)
 }
 
-func (s *Store) DeleteThought(id int64) error {
-	result, err := s.db.Exec(`DELETE FROM thoughts WHERE id = ?`, id)
+func (s *Store) DeleteNote(id int64) error {
+	result, err := s.db.Exec(`DELETE FROM notes WHERE id = ?`, id)
 	if err != nil {
 		return err
 	}
@@ -114,10 +152,10 @@ func (s *Store) DeleteThought(id int64) error {
 	return nil
 }
 
-func (s *Store) CreateSummary(thoughtID int64, body string) (Summary, error) {
+func (s *Store) CreateSummary(noteID int64, body string) (Summary, error) {
 	row := s.db.QueryRow(
-		`INSERT INTO summaries (thought_id, body) VALUES (?, ?) RETURNING id, thought_id, body, created_at`,
-		thoughtID,
+		`INSERT INTO summaries (note_id, body) VALUES (?, ?) RETURNING id, note_id, body, created_at`,
+		noteID,
 		body,
 	)
 
@@ -126,7 +164,7 @@ func (s *Store) CreateSummary(thoughtID int64, body string) (Summary, error) {
 
 func (s *Store) GetSummary(id int64) (Summary, error) {
 	row := s.db.QueryRow(
-		`SELECT id, thought_id, body, created_at FROM summaries WHERE id = ?`,
+		`SELECT id, note_id, body, created_at FROM summaries WHERE id = ?`,
 		id,
 	)
 
@@ -137,7 +175,7 @@ func (s *Store) ListSummaries(limit, offset int) ([]Summary, error) {
 	limit, offset = sanitizeListParams(limit, offset)
 
 	rows, err := s.db.Query(
-		`SELECT id, thought_id, body, created_at FROM summaries ORDER BY id DESC LIMIT ? OFFSET ?`,
+		`SELECT id, note_id, body, created_at FROM summaries ORDER BY id DESC LIMIT ? OFFSET ?`,
 		limit,
 		offset,
 	)
@@ -162,10 +200,47 @@ func (s *Store) ListSummaries(limit, offset int) ([]Summary, error) {
 	return summaries, nil
 }
 
-func (s *Store) UpdateSummary(id int64, thoughtID int64, body string) (Summary, error) {
+func (s *Store) SearchSummaries(query string, limit, offset int) ([]Summary, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, errors.New("query cannot be empty")
+	}
+
+	limit, offset = sanitizeListParams(limit, offset)
+	rows, err := s.db.Query(
+		`SELECT id, note_id, body, created_at
+		 FROM summaries
+		 WHERE instr(lower(body), lower(?)) > 0
+		 ORDER BY id DESC
+		 LIMIT ? OFFSET ?`,
+		query,
+		limit,
+		offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	summaries := make([]Summary, 0)
+	for rows.Next() {
+		summary, err := scanSummary(rows)
+		if err != nil {
+			return nil, err
+		}
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return summaries, nil
+}
+
+func (s *Store) UpdateSummary(id int64, noteID int64, body string) (Summary, error) {
 	row := s.db.QueryRow(
-		`UPDATE summaries SET thought_id = ?, body = ? WHERE id = ? RETURNING id, thought_id, body, created_at`,
-		thoughtID,
+		`UPDATE summaries SET note_id = ?, body = ? WHERE id = ? RETURNING id, note_id, body, created_at`,
+		noteID,
 		body,
 		id,
 	)
@@ -190,10 +265,10 @@ func (s *Store) DeleteSummary(id int64) error {
 	return nil
 }
 
-func (s *Store) CountUnsummarizedThoughts() (int, error) {
+func (s *Store) CountUnsummarizedNotes() (int, error) {
 	var count int
 	err := s.db.QueryRow(
-		`SELECT COUNT(*) FROM thoughts WHERE id > COALESCE((SELECT MAX(thought_id) FROM summaries), 0)`,
+		`SELECT COUNT(*) FROM notes WHERE id > COALESCE((SELECT MAX(note_id) FROM summaries), 0)`,
 	).Scan(&count)
 	if err != nil {
 		return 0, err
@@ -202,9 +277,9 @@ func (s *Store) CountUnsummarizedThoughts() (int, error) {
 	return count, nil
 }
 
-func (s *Store) CountThoughts() (int, error) {
+func (s *Store) CountNotes() (int, error) {
 	var count int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM thoughts`).Scan(&count); err != nil {
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM notes`).Scan(&count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -218,10 +293,10 @@ func (s *Store) CountSummaries() (int, error) {
 	return count, nil
 }
 
-func (s *Store) ListUnsummarizedThoughts() ([]Thought, error) {
+func (s *Store) ListUnsummarizedNotes() ([]Note, error) {
 	rows, err := s.db.Query(
-		`SELECT id, content, llm, model, created_at FROM thoughts
-         WHERE id > COALESCE((SELECT MAX(thought_id) FROM summaries), 0)
+		`SELECT id, content, llm, model, created_at FROM notes
+         WHERE id > COALESCE((SELECT MAX(note_id) FROM summaries), 0)
          ORDER BY id ASC`,
 	)
 	if err != nil {
@@ -229,19 +304,19 @@ func (s *Store) ListUnsummarizedThoughts() ([]Thought, error) {
 	}
 	defer rows.Close()
 
-	thoughts := make([]Thought, 0)
+	notes := make([]Note, 0)
 	for rows.Next() {
-		thought, err := scanThought(rows)
+		note, err := scanNote(rows)
 		if err != nil {
 			return nil, err
 		}
-		thoughts = append(thoughts, thought)
+		notes = append(notes, note)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return thoughts, nil
+	return notes, nil
 }
 
 func sanitizeListParams(limit, offset int) (int, int) {
@@ -262,28 +337,28 @@ func nullableString(value *string) any {
 	return *value
 }
 
-func scanThought(scanner rowScanner) (Thought, error) {
-	var thought Thought
+func scanNote(scanner rowScanner) (Note, error) {
+	var note Note
 	var createdAt any
 
 	err := scanner.Scan(
-		&thought.ID,
-		&thought.Content,
-		&thought.LLM,
-		&thought.Model,
+		&note.ID,
+		&note.Content,
+		&note.LLM,
+		&note.Model,
 		&createdAt,
 	)
 	if err != nil {
-		return Thought{}, err
+		return Note{}, err
 	}
 
 	t, err := normalizeSQLiteTime(createdAt)
 	if err != nil {
-		return Thought{}, err
+		return Note{}, err
 	}
-	thought.CreatedAt = t
+	note.CreatedAt = t
 
-	return thought, nil
+	return note, nil
 }
 
 func scanSummary(scanner rowScanner) (Summary, error) {
@@ -292,7 +367,7 @@ func scanSummary(scanner rowScanner) (Summary, error) {
 
 	err := scanner.Scan(
 		&summary.ID,
-		&summary.ThoughtID,
+		&summary.NoteID,
 		&summary.Body,
 		&createdAt,
 	)

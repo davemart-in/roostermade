@@ -2,13 +2,13 @@
 
 Recall is a project-scoped memory CLI for agent workflows.
 
-It stores short thoughts in SQLite, summarizes them in batches, keeps project docs in `.recall/*.md`, and exposes everything through both CLI commands and an MCP server.
+It stores short notes in SQLite, summarizes them in batches, keeps project docs in `.recall/*.md`, and exposes everything through both CLI commands and an MCP server.
 
 ## Features
 
 - Local, pure-Go SQLite (`modernc.org/sqlite`) with no CGO
-- Thought capture with per-thought `llm`/`model` metadata
-- Auto-summarization when unsummarized thoughts exceed a threshold
+- Note capture with per-note `llm`/`model` metadata
+- Auto-summarization when unsummarized notes exceed a threshold
 - Project docs managed in `.recall/` and tracked in config
 - Export/import support for portability
 - MCP server over stdio (`recall mcp`)
@@ -51,11 +51,11 @@ recall init
   - Context questions to build `.recall/context.md`
   - Core docs to include (all default yes): `architecture.md`, `design.md`, `soul.md`
 
-After init, start capturing thoughts:
+After init, start capturing notes:
 
 ```bash
-recall thought add "Investigated flaky CI behavior"
-recall thought list
+recall note add "Investigated flaky CI behavior"
+recall note list
 recall summary add
 ```
 
@@ -89,7 +89,7 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 ### Core
 
 - `recall init` - Guided setup + context/doc planning
-- `recall status` - Show thought/summary/doc counts
+- `recall status` - Show note/summary/doc counts
 - `recall man` - Print command reference
 - `recall config` - Interactive config/doc editor
 - `recall context` - Print assembled context bundle (core docs + extras)
@@ -97,17 +97,19 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall import <zipfile>` - Import recall data from an export zip
 - `recall mcp` - Run MCP server over stdio
 
-### Thought
+### Note
 
-- `recall thought add "<content>" [--llm <provider>] [--model <model>]`
-- `recall thought list`
-- `recall thought get <id>`
+- `recall note add "<content>" [--llm <provider>] [--model <model>]`
+- `recall note list`
+- `recall note get <id>`
+- `recall note search <query>`
 
 ### Summary
 
 - `recall summary add`
 - `recall summary list`
 - `recall summary get <id>`
+- `recall summary search <query>`
 
 ### Doc
 
@@ -147,9 +149,9 @@ If `.recall/context.md` is missing:
 
 Recall exposes these tools via MCP:
 
-- `thought_add(content, llm, model)`
-- `thought_list()`
-- `thought_get(id)`
+- `note_add(content, llm, model)`
+- `note_list()`
+- `note_get(id)`
 - `summary_add()`
 - `summary_list()`
 - `context_get()`
@@ -196,7 +198,7 @@ Commands that require Recall project state return:
 
 `Recall is not initialized in this project. Run \`recall init\` first.`
 
-This applies to thought/summary/doc/status/config/context/export/mcp commands.
+This applies to note/summary/doc/status/config/context/export/mcp commands.
 
 ## Development
 

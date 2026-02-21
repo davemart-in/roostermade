@@ -41,7 +41,7 @@ func TestRunSummarizerCommandReturnsTrimmedStdout(t *testing.T) {
 	}
 }
 
-func TestGenerateAndStoreNoUnsummarizedThoughts(t *testing.T) {
+func TestGenerateAndStoreNoUnsummarizedNotes(t *testing.T) {
 	conn, err := db.Open(filepath.Join(t.TempDir(), "recall.db"))
 	if err != nil {
 		t.Fatalf("open db: %v", err)
@@ -60,7 +60,7 @@ func TestGenerateAndStoreNoUnsummarizedThoughts(t *testing.T) {
 }
 
 func TestGenerateAndStoreUsesUnsummarizedBatchAndStoresHighWaterMark(t *testing.T) {
-	t.Setenv(summarizerEnvVar, "printf '%s\\n' '- [#3] Summarized thought.'")
+	t.Setenv(summarizerEnvVar, "printf '%s\\n' '- [#3] Summarized note.'")
 
 	conn, err := db.Open(filepath.Join(t.TempDir(), "recall.db"))
 	if err != nil {
@@ -71,8 +71,8 @@ func TestGenerateAndStoreUsesUnsummarizedBatchAndStoresHighWaterMark(t *testing.
 	store := db.NewStore(conn)
 
 	for _, content := range []string{"t1", "t2", "t3"} {
-		if _, err := store.CreateThought(content, nil, nil); err != nil {
-			t.Fatalf("create thought %q: %v", content, err)
+		if _, err := store.CreateNote(content, nil, nil); err != nil {
+			t.Fatalf("create note %q: %v", content, err)
 		}
 	}
 	if _, err := store.CreateSummary(1, "- [#1] Already summarized."); err != nil {
@@ -86,19 +86,19 @@ func TestGenerateAndStoreUsesUnsummarizedBatchAndStoresHighWaterMark(t *testing.
 	if !didSummarize {
 		t.Fatal("expected didSummarize=true")
 	}
-	if createdSummary.ThoughtID != 3 {
-		t.Fatalf("expected high-water thought_id 3, got %d", createdSummary.ThoughtID)
+	if createdSummary.NoteID != 3 {
+		t.Fatalf("expected high-water note_id 3, got %d", createdSummary.NoteID)
 	}
-	if strings.TrimSpace(createdSummary.Body) != "- [#3] Summarized thought." {
+	if strings.TrimSpace(createdSummary.Body) != "- [#3] Summarized note." {
 		t.Fatalf("unexpected summary body: %q", createdSummary.Body)
 	}
 
-	unsummarizedCount, err := store.CountUnsummarizedThoughts()
+	unsummarizedCount, err := store.CountUnsummarizedNotes()
 	if err != nil {
-		t.Fatalf("count unsummarized thoughts: %v", err)
+		t.Fatalf("count unsummarized notes: %v", err)
 	}
 	if unsummarizedCount != 0 {
-		t.Fatalf("expected 0 unsummarized thoughts, got %d", unsummarizedCount)
+		t.Fatalf("expected 0 unsummarized notes, got %d", unsummarizedCount)
 	}
 }
 
@@ -112,8 +112,8 @@ func TestGenerateAndStoreWithConfiguredCommand(t *testing.T) {
 	defer conn.Close()
 
 	store := db.NewStore(conn)
-	if _, err := store.CreateThought("t1", nil, nil); err != nil {
-		t.Fatalf("create thought: %v", err)
+	if _, err := store.CreateNote("t1", nil, nil); err != nil {
+		t.Fatalf("create note: %v", err)
 	}
 
 	createdSummary, didSummarize, err := GenerateAndStoreWithCommand(

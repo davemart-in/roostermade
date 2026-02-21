@@ -104,9 +104,9 @@ if [[ -z "${prompt// }" ]]; then
 fi
 
 model="${RECALL_CLAUDE_MODEL:-}"
-instruction="You are summarizing project thoughts.
-Return exactly one short past-tense bullet per thought.
-Each bullet must begin with the thought id in this exact format: [#id].
+instruction="You are summarizing project notes.
+Return exactly one short past-tense bullet per note.
+Each bullet must begin with the note id in this exact format: [#id].
 Output bullets only, with no extra headings or commentary."
 
 full_prompt="${instruction}
@@ -143,9 +143,9 @@ if [[ -z "${prompt// }" ]]; then
 fi
 
 model="${RECALL_CODEX_MODEL:-}"
-instruction="You are summarizing project thoughts.
-Return exactly one short past-tense bullet per thought.
-Each bullet must begin with the thought id in this exact format: [#id].
+instruction="You are summarizing project notes.
+Return exactly one short past-tense bullet per note.
+Each bullet must begin with the note id in this exact format: [#id].
 Output bullets only, with no extra headings or commentary."
 
 full_prompt="${instruction}
@@ -192,9 +192,9 @@ fi
 api_url="${RECALL_CURSOR_API_URL:-https://api.cursor.com/v1/chat/completions}"
 model="${RECALL_CURSOR_MODEL:-gpt-4.1-mini}"
 
-instruction="You are summarizing project thoughts.
-Return exactly one short past-tense bullet per thought.
-Each bullet must begin with the thought id in this exact format: [#id].
+instruction="You are summarizing project notes.
+Return exactly one short past-tense bullet per note.
+Each bullet must begin with the note id in this exact format: [#id].
 Output bullets only, with no extra headings or commentary."
 
 payload="$(jq -n \

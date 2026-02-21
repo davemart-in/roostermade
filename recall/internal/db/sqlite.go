@@ -28,7 +28,7 @@ func Open(path string) (*sql.DB, error) {
 
 func InitSchema(db *sql.DB) error {
 	const schema = `
-CREATE TABLE IF NOT EXISTS thoughts (
+CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT NOT NULL,
     llm TEXT,
@@ -38,10 +38,10 @@ CREATE TABLE IF NOT EXISTS thoughts (
 
 CREATE TABLE IF NOT EXISTS summaries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thought_id INTEGER NOT NULL,
+    note_id INTEGER NOT NULL,
     body TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (thought_id) REFERENCES thoughts(id)
+    FOREIGN KEY (note_id) REFERENCES notes(id)
 );
 `
 

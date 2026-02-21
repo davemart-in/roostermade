@@ -18,21 +18,21 @@ func GenerateAndStore(store *db.Store) (db.Summary, bool, error) {
 }
 
 func GenerateAndStoreWithCommand(store *db.Store, configuredCmd string) (db.Summary, bool, error) {
-	thoughts, err := store.ListUnsummarizedThoughts()
+	notes, err := store.ListUnsummarizedNotes()
 	if err != nil {
 		return db.Summary{}, false, err
 	}
-	if len(thoughts) == 0 {
+	if len(notes) == 0 {
 		return db.Summary{}, false, nil
 	}
 
-	prompt := buildPrompt(thoughts)
+	prompt := buildPrompt(notes)
 	body, err := RunSummarizerCommandWith(configuredCmd, prompt)
 	if err != nil {
 		return db.Summary{}, false, err
 	}
 
-	highWaterID := thoughts[len(thoughts)-1].ID
+	highWaterID := notes[len(notes)-1].ID
 	summary, err := store.CreateSummary(highWaterID, body)
 	if err != nil {
 		return db.Summary{}, false, err
@@ -83,16 +83,16 @@ func resolveSummarizerCommand(configuredCmd string) string {
 	return strings.TrimSpace(configuredCmd)
 }
 
-func buildPrompt(thoughts []db.Thought) string {
+func buildPrompt(notes []db.Note) string {
 	var b strings.Builder
 
-	b.WriteString("Summarize these thoughts.\n")
-	b.WriteString("Return exactly one short past-tense bullet per thought.\n")
-	b.WriteString("Each bullet must begin with the thought id in this exact format: [#id].\n")
+	b.WriteString("Summarize these notes.\n")
+	b.WriteString("Return exactly one short past-tense bullet per note.\n")
+	b.WriteString("Each bullet must begin with the note id in this exact format: [#id].\n")
 	b.WriteString("Output bullets only, no extra headings or commentary.\n\n")
-	b.WriteString("Thoughts:\n")
-	for _, thought := range thoughts {
-		b.WriteString(fmt.Sprintf("[#%d] %s\n", thought.ID, thought.Content))
+	b.WriteString("Notes:\n")
+	for _, note := range notes {
+		b.WriteString(fmt.Sprintf("[#%d] %s\n", note.ID, note.Content))
 	}
 
 	return b.String()

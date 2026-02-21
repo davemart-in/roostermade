@@ -20,11 +20,11 @@ Recall stores data in a `.recall/` directory in the project root containing:
 Recall is initialized with `recall init` and stores setup in `.recall/`:
 - `project_name` defaults to the current folder name (editable during init)
 - `summary_threshold` defaults to `10` (editable during init)
-- `initialized` must be `true` before thought/summary/doc commands are allowed
+- `initialized` must be `true` before note/summary/doc commands are allowed
 
 ### Schema
 ```sql
-CREATE TABLE thoughts (
+CREATE TABLE notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     content TEXT NOT NULL,
     llm TEXT,
@@ -34,20 +34,20 @@ CREATE TABLE thoughts (
 
 CREATE TABLE summaries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    thought_id INTEGER NOT NULL,
+    note_id INTEGER NOT NULL,
     body TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (thought_id) REFERENCES thoughts(id)
+    FOREIGN KEY (note_id) REFERENCES notes(id)
 );
 ```
 
-`thought_id` in summaries is the highest thought ID in the summarized batch (high-water mark).
+`note_id` in summaries is the highest note ID in the summarized batch (high-water mark).
 
 ## Auto-Summarization
 
-When `thought add` is called and unsummarized thought count exceeds `SummaryThreshold` (default 10), Recall triggers summarization. Recall is designed to work with the active agent runtime (Claude Code, Codex, Cursor, etc.) rather than storing provider API keys in project config. Each summary line references the originating thought ID in the format `[#id]`. Example:
+When `note add` is called and unsummarized note count exceeds `SummaryThreshold` (default 10), Recall triggers summarization. Recall is designed to work with the active agent runtime (Claude Code, Codex, Cursor, etc.) rather than storing provider API keys in project config. Each summary line references the originating note ID in the format `[#id]`. Example:
 ```
-## Summary [2025-02-20] (through thought #10)
+## Summary [2025-02-20] (through note #10)
 - [#3] Decided to use SQLite for local-first simplicity
 - [#7] Chose Go for CLI/MCP binary
 - [#9] Scrapped ledger product, pivoting to memory extension tool
@@ -81,13 +81,13 @@ Custom doc names are also supported.
 
 ## CLI Commands
 ```
-recall status                    # thought count, summary count, doc count
+recall status                    # note count, summary count, doc count
 recall man                       # full command reference
 recall init                      # guided setup + context/doc planning
 
-recall thought add "<content>" [--llm claude] [--model claude-sonnet-4-6]
-recall thought list
-recall thought get <id>
+recall note add "<content>" [--llm claude] [--model claude-sonnet-4-6]
+recall note list
+recall note get <id>
 
 recall summary add               # manually trigger summarization
 recall summary list
@@ -97,21 +97,21 @@ recall doc add <name>            # create and register a doc
 recall doc edit <name>           # open in $EDITOR
 recall doc list
 
-recall context [--since <id>]    # full context dump: summaries + docs + recent thoughts
+recall context [--since <id>]    # full context dump: summaries + docs + recent notes
 recall export                    # outputs recall-export-[date].zip
 recall import <zipfile>          # restore from export zip
 recall config                    # view/set config values
 ```
 
-Note: `recall init` is required before using thought/summary/doc commands.
+Note: `recall init` is required before using note/summary/doc commands.
 
 ## MCP Tools
 
 When running as an MCP server (`recall mcp`), the following tools are exposed over stdio:
 ```
-thought_add(content, llm, model)
-thought_list()
-thought_get(id)
+note_add(content, llm, model)
+note_list()
+note_get(id)
 summary_add()
 summary_list()
 context_get()
@@ -124,7 +124,7 @@ doc_list()
 `recall export` produces a zip containing:
 - `recall.db`
 - all registered `.md` files
-- `recall-manifest.json` (project name, export date, thought count, summary count, doc list)
+- `recall-manifest.json` (project name, export date, note count, summary count, doc list)
 
 `recall import <zipfile>` validates the manifest and restores `.recall/` from the zip.
 
@@ -148,14 +148,14 @@ internal/mcp/
 
 ## Git Behavior
 
-`.recall/recall.db` is excluded from git. `.recall/*.md` files are tracked. This means project memory docs travel with the repo but the raw thought/summary database does not (use `recall export` for portability).
+`.recall/recall.db` is excluded from git. `.recall/*.md` files are tracked. This means project memory docs travel with the repo but the raw note/summary database does not (use `recall export` for portability).
 
 ## Agent Integration
 
 Projects using Recall should include a `CLAUDE.md` at the project root instructing the agent to:
 
 1. Run `recall context` at the start of each session and read the output
-2. Log update messages after each prompt as a thought `recall thought add`
+2. Log update messages after each prompt as a note `recall note add`
 3. Use MCP tools when available (`context_get` first on session start)
 4. Read relevant docs via `recall doc list` then `recall doc get <name>`
 

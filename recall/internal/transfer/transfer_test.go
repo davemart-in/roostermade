@@ -33,7 +33,7 @@ func TestParseAndValidateManifest(t *testing.T) {
 	raw := []byte(`{
   "project_name":"p",
   "export_date":"2026-02-21T10:00:00Z",
-  "thought_count":1,
+  "note_count":1,
   "summary_count":2,
   "doc_list":["context.md"]
 }`)
@@ -87,7 +87,7 @@ func TestFindRequiredImportEntries(t *testing.T) {
 	entries, err := FindRequiredImportEntries(zr, Manifest{
 		ProjectName:  "p",
 		ExportDate:   "2026-02-21T10:00:00Z",
-		ThoughtCount: 0,
+		NoteCount: 0,
 		SummaryCount: 0,
 		DocList:      []string{"context.md"},
 	})

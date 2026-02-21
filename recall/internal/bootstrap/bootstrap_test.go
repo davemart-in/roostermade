@@ -41,7 +41,7 @@ func TestEnsureProjectInitializedCreatesDefaults(t *testing.T) {
 	}
 	defer conn.Close()
 
-	for _, table := range []string{"thoughts", "summaries"} {
+	for _, table := range []string{"notes", "summaries"} {
 		var count int
 		err := conn.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&count)
 		if err != nil {
