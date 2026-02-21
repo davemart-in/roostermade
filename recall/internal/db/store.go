@@ -190,6 +190,18 @@ func (s *Store) DeleteSummary(id int64) error {
 	return nil
 }
 
+func (s *Store) CountUnsummarizedThoughts() (int, error) {
+	var count int
+	err := s.db.QueryRow(
+		`SELECT COUNT(*) FROM thoughts WHERE id > COALESCE((SELECT MAX(thought_id) FROM summaries), 0)`,
+	).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
 func sanitizeListParams(limit, offset int) (int, int) {
 	if limit <= 0 {
 		limit = defaultListLimit

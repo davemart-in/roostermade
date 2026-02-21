@@ -1,3 +1,7 @@
 package summary
 
-type Service struct{}
+import "fmt"
+
+func AutoSummaryStub() {
+	fmt.Println("summary needed")
+}

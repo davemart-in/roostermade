@@ -173,3 +173,39 @@ func TestSummaryCRUDAndFK(t *testing.T) {
 		t.Fatalf("expected FK constraint error for missing thought")
 	}
 }
+
+func TestCountUnsummarizedThoughtsUsesSummaryHighWaterMark(t *testing.T) {
+	conn, err := Open(filepath.Join(t.TempDir(), "recall.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer conn.Close()
+
+	store := NewStore(conn)
+
+	for _, content := range []string{"t1", "t2", "t3"} {
+		if _, err := store.CreateThought(content, nil, nil); err != nil {
+			t.Fatalf("create thought %q: %v", content, err)
+		}
+	}
+
+	count, err := store.CountUnsummarizedThoughts()
+	if err != nil {
+		t.Fatalf("count unsummarized before summaries: %v", err)
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 unsummarized thoughts, got %d", count)
+	}
+
+	if _, err := store.CreateSummary(2, "covers up to thought 2"); err != nil {
+		t.Fatalf("create summary with high-water mark 2: %v", err)
+	}
+
+	count, err = store.CountUnsummarizedThoughts()
+	if err != nil {
+		t.Fatalf("count unsummarized after summary: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected 1 unsummarized thought, got %d", count)
+	}
+}
