@@ -88,22 +88,14 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 
 ### Core
 
-- `recall init`  
-  Guided setup + context/doc planning
-- `recall status`  
-  Show thought/summary/doc counts
-- `recall man`  
-  Print command reference
-- `recall config`  
-  Interactive config/doc editor
-- `recall context`  
-  Print assembled context bundle (core docs + extras)
-- `recall export`  
-  Export data to `recall-export-[YYYY-MM-DD].zip`
-- `recall import <zipfile>`  
-  Import recall data from an export zip
-- `recall mcp`  
-  Run MCP server over stdio
+- `recall init` - Guided setup + context/doc planning
+- `recall status` - Show thought/summary/doc counts
+- `recall man` - Print command reference
+- `recall config` - Interactive config/doc editor
+- `recall context` - Print assembled context bundle (core docs + extras)
+- `recall export` - Export data to `recall-export-[YYYY-MM-DD].zip`
+- `recall import <zipfile>` - Import recall data from an export zip
+- `recall mcp` - Run MCP server over stdio
 
 ### Thought
 
