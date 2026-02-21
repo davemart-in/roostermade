@@ -59,6 +59,14 @@ func TestEnsureProjectInitializedCreatesDefaults(t *testing.T) {
 	if !strings.Contains(string(gitignoreData), ".recall/recall.db") {
 		t.Fatalf("expected .gitignore to include .recall/recall.db")
 	}
+
+	recallGitignoreData, err := os.ReadFile(filepath.Join(projectRoot, ".recall", ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .recall/.gitignore error: %v", err)
+	}
+	if !strings.Contains(string(recallGitignoreData), "recall.db") {
+		t.Fatalf("expected .recall/.gitignore to include recall.db")
+	}
 }
 
 func TestEnsureProjectInitializedIsIdempotent(t *testing.T) {
@@ -89,6 +97,14 @@ func TestEnsureProjectInitializedIsIdempotent(t *testing.T) {
 	}
 	if got := strings.Count(string(gitignoreData), ".recall/recall.db"); got != 1 {
 		t.Fatalf("expected exactly one .recall/recall.db entry, got %d", got)
+	}
+
+	recallGitignoreData, err := os.ReadFile(filepath.Join(projectRoot, ".recall", ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .recall/.gitignore error: %v", err)
+	}
+	if got := strings.Count(string(recallGitignoreData), "recall.db"); got != 1 {
+		t.Fatalf("expected exactly one recall.db entry in .recall/.gitignore, got %d", got)
 	}
 }
 

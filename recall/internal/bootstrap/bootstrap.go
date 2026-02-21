@@ -12,6 +12,7 @@ import (
 )
 
 const dbGitignorePattern = ".recall/recall.db"
+const recallDirGitignorePattern = "recall.db"
 
 var ErrNotInitialized = errors.New("recall is not initialized")
 
@@ -32,6 +33,9 @@ func EnsureBaseArtifacts(projectRoot string) (bool, error) {
 	}
 
 	if err := ensureDBGitignore(projectRoot); err != nil {
+		return false, err
+	}
+	if err := ensureRecallDirGitignore(projectRoot); err != nil {
 		return false, err
 	}
 
@@ -124,6 +128,30 @@ func ensureDBGitignore(projectRoot string) error {
 	}
 
 	line := dbGitignorePattern + "\n"
+	if len(data) == 0 {
+		return os.WriteFile(path, []byte(line), 0o644)
+	}
+
+	if !strings.HasSuffix(string(data), "\n") {
+		data = append(data, '\n')
+	}
+	data = append(data, []byte(line)...)
+
+	return os.WriteFile(path, data, 0o644)
+}
+
+func ensureRecallDirGitignore(projectRoot string) error {
+	path := filepath.Join(config.DirPath(projectRoot), ".gitignore")
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if strings.Contains(string(data), recallDirGitignorePattern) {
+		return nil
+	}
+
+	line := recallDirGitignorePattern + "\n"
 	if len(data) == 0 {
 		return os.WriteFile(path, []byte(line), 0o644)
 	}
