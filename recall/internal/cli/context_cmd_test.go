@@ -150,7 +150,17 @@ func TestBuildContextPartsIncludesQueryMatches(t *testing.T) {
 }
 
 func TestFirstDocDescriptionLine(t *testing.T) {
-	got := firstDocDescriptionLine("# Title\n\n## Subtitle\n\n  first meaningful line  ")
+	got := firstDocDescriptionLine("# Title\n\nSummary: This is canonical.\n\n## Subtitle\n\nfirst meaningful line")
+	if got != "This is canonical." {
+		t.Fatalf("expected Summary line to win, got %q", got)
+	}
+
+	got = firstDocDescriptionLine("---\nsummary: From frontmatter\n---\n# Title\n\nother text")
+	if got != "From frontmatter" {
+		t.Fatalf("expected frontmatter summary, got %q", got)
+	}
+
+	got = firstDocDescriptionLine("# Title\n\n## Subtitle\n\n  first meaningful line  ")
 	if got != "first meaningful line" {
 		t.Fatalf("unexpected description: %q", got)
 	}

@@ -74,6 +74,8 @@ recall status                    # note count, summary count, doc count
 recall man                       # full command reference
 recall init                      # guided setup + context capture
 recall doctor                    # health checks for project/db/summarizer
+recall config get <key>          # scriptable config read
+recall config set <key> <value>  # scriptable config write for writable keys
 
 recall note add "<content>" [--llm claude] [--model claude-sonnet-4-6]
 recall note list

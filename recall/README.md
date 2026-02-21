@@ -91,11 +91,17 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall status` - Show note/summary/doc counts
 - `recall man` - Print command reference
 - `recall config` - Interactive config/doc editor
+- `recall config get <key>` - Print config value
+- `recall config set <key> <value>` - Set writable config value
 - `recall context` - Print project context snapshot
 - `recall doctor` - Run health checks (project/db/summarizer)
 - `recall export` - Export data to `recall-export-[YYYY-MM-DD].zip`
 - `recall import <zipfile>` - Import recall data from an export zip
 - `recall mcp` - Run MCP server over stdio
+
+Config keys:
+- Writable via `config set`: `project_name`, `summary_threshold`, `summarizer_provider`, `summarizer_cmd`
+- Read-only via `config get`: `docs`, `initialized`
 
 ### Note
 
@@ -116,6 +122,9 @@ No manual `chmod +x` or shell `export` is required for normal setup.
 - `recall doc add <name>`
 - `recall doc edit <name>`
 - `recall doc list`
+
+New docs created by Recall include a leading `Summary:` line. The docs index in
+`recall context` uses this line first when building one-line descriptions.
 
 ### Context Output
 

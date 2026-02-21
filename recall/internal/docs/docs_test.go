@@ -146,9 +146,22 @@ func TestTemplateForSoulIsStructured(t *testing.T) {
 	if template == "" {
 		t.Fatal("expected non-empty soul template")
 	}
+	if !strings.Contains(template, "Summary: TBD.") {
+		t.Fatal("expected soul template to include Summary line")
+	}
 	for _, section := range []string{"## Principles", "## Personality", "## Non-Negotiables", "## Anti-Goals"} {
 		if !strings.Contains(template, section) {
 			t.Fatalf("expected soul template to include %q", section)
 		}
+	}
+}
+
+func TestInitialContentForUnknownDocIncludesSummary(t *testing.T) {
+	content := InitialContentFor("project-overview")
+	if !strings.Contains(content, "# Project Overview") {
+		t.Fatalf("expected generated title, got %q", content)
+	}
+	if !strings.Contains(content, "Summary: TBD.") {
+		t.Fatalf("expected Summary line, got %q", content)
 	}
 }

@@ -2,6 +2,7 @@ package docs
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -87,6 +88,8 @@ func TemplateFor(base string) string {
 	case "architecture":
 		return `# Architecture
 
+Summary: TBD.
+
 ## System Overview
 Describe the system at a high level.
 
@@ -114,6 +117,8 @@ List non-negotiable constraints and tradeoffs.
 	case "design":
 		return `# Design
 
+Summary: TBD.
+
 ## Visual Direction
 Describe desired look and feel.
 
@@ -132,6 +137,8 @@ Describe behavior across desktop/mobile breakpoints.
 	case "soul":
 		return `# Soul
 
+Summary: TBD.
+
 ## Principles
 List enduring project principles.
 
@@ -147,6 +154,13 @@ Document what this project should not become.
 	default:
 		return ""
 	}
+}
+
+func InitialContentFor(base string) string {
+	if template := TemplateFor(base); template != "" {
+		return template
+	}
+	return fmt.Sprintf("# %s\n\nSummary: TBD.\n", titleCaseFromBase(base))
 }
 
 func DocPath(projectRoot, filename string) string {
@@ -220,4 +234,23 @@ func collapseHyphens(v string) string {
 		trimmed = append(trimmed, p)
 	}
 	return strings.Join(trimmed, "-")
+}
+
+func titleCaseFromBase(base string) string {
+	parts := strings.Split(strings.TrimSpace(base), "-")
+	titled := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		r := []rune(part)
+		if len(r) == 0 {
+			continue
+		}
+		titled = append(titled, strings.ToUpper(string(r[0]))+string(r[1:]))
+	}
+	if len(titled) == 0 {
+		return "Doc"
+	}
+	return strings.Join(titled, " ")
 }

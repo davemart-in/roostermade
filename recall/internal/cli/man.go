@@ -9,6 +9,8 @@ Core
   recall status                    Show note/summary/doc counts
   recall man                       Show this command reference
   recall config                    Interactive config/doc editor
+  recall config get <key>          Print config value
+  recall config set <key> <value>  Set writable config value
   recall context                   Print context snapshot (context + summaries + docs)
   recall doctor                    Run health checks (project/db/summarizer)
   recall mcp                       Run MCP server over stdio

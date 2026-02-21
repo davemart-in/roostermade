@@ -386,6 +386,12 @@ func renderDocIndexSection(projectRoot string, cfg config.Config) (string, error
 }
 
 func firstDocDescriptionLine(body string) string {
+	if summary := summaryFromSummaryLine(body); summary != "" {
+		return truncateWithEllipsis(summary, defaultDocDescriptionRunes)
+	}
+	if summary := summaryFromFrontmatter(body); summary != "" {
+		return truncateWithEllipsis(summary, defaultDocDescriptionRunes)
+	}
 	for _, raw := range strings.Split(body, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" {
@@ -398,6 +404,54 @@ func firstDocDescriptionLine(body string) string {
 		return truncateWithEllipsis(oneLine, defaultDocDescriptionRunes)
 	}
 	return "TBD."
+}
+
+func summaryFromSummaryLine(body string) string {
+	lines := strings.Split(body, "\n")
+	for i, raw := range lines {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if !strings.HasPrefix(strings.ToLower(line), "summary:") {
+			continue
+		}
+
+		value := strings.TrimSpace(line[len("summary:"):])
+		chunks := make([]string, 0, 3)
+		if value != "" {
+			chunks = append(chunks, value)
+		}
+		for j := i + 1; j < len(lines) && len(chunks) < 3; j++ {
+			next := strings.TrimSpace(lines[j])
+			if next == "" || next == "---" || strings.HasPrefix(next, "#") || strings.Contains(next, ":") {
+				break
+			}
+			chunks = append(chunks, next)
+		}
+		if len(chunks) == 0 {
+			return ""
+		}
+		return strings.Join(chunks, " ")
+	}
+	return ""
+}
+
+func summaryFromFrontmatter(body string) string {
+	lines := strings.Split(body, "\n")
+	if len(lines) < 3 || strings.TrimSpace(lines[0]) != "---" {
+		return ""
+	}
+	for i := 1; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "---" {
+			break
+		}
+		if strings.HasPrefix(strings.ToLower(line), "summary:") {
+			return strings.TrimSpace(line[len("summary:"):])
+		}
+	}
+	return ""
 }
 
 func truncateWithEllipsis(s string, maxRunes int) string {

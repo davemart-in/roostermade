@@ -50,10 +50,7 @@ func newDocAddCmd() *cobra.Command {
 				return err
 			}
 
-			template := ""
-			if docs.IsKnown(base) {
-				template = docs.TemplateFor(base)
-			}
+			template := docs.InitialContentFor(base)
 
 			created, err := docs.EnsureDocFile(cwd, filename, template)
 			if err != nil {
@@ -105,10 +102,7 @@ func newDocEditCmd() *cobra.Command {
 				return err
 			}
 
-			template := ""
-			if docs.IsKnown(base) {
-				template = docs.TemplateFor(base)
-			}
+			template := docs.InitialContentFor(base)
 
 			if _, err := docs.EnsureDocFile(cwd, filename, template); err != nil {
 				return err
