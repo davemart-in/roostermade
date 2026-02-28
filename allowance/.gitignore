@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Local docs
+context.md
+prototype.html
+
+# Env
+.env
+
+# Databases
+*.db
+
+# Go build artifacts
+/allowance
+*.exe
+*.test
+*.out
