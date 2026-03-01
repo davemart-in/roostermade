@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Allowance</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="selection:bg-zinc-200" onclick="closeAllDropdowns(event)">
+  <nav class="md:hidden bg-white border-b p-4 flex justify-between items-center sticky top-0 z-50">
+    <div class="flex items-center gap-2"><span class="font-bold text-lg tracking-tight">Allowance</span></div>
+  </nav>
+
+  <div class="flex h-screen overflow-hidden">
+    <aside class="hidden md:flex flex-col w-64 bg-white border-r border-zinc-200">
+      <div class="p-6 flex items-center gap-2 mb-4"><span class="font-semibold text-sm tracking-tight">Allowance</span></div>
+      <nav class="flex-1 px-3 space-y-1">
+        <button onclick="showView('inbox')" id="nav-inbox" class="nav-item active w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors text-zinc-950 text-left">Inbox</button>
+        <button onclick="showView('policies')" id="nav-policies" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors text-left">Policies</button>
+        <button onclick="showView('logs')" id="nav-logs" class="nav-item w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-zinc-500 hover:text-zinc-950 hover:bg-zinc-100 transition-colors text-left">Logs</button>
+      </nav>
+      <div class="mt-auto p-4 border-t border-zinc-200">
+        <button onclick="showView('settings')" id="nav-settings" class="nav-item w-full flex items-center justify-between px-3 py-2 text-xs text-zinc-500 hover:text-zinc-950 transition-colors rounded-md text-left">
+          <span>Settings</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="flex-1 overflow-y-auto bg-[#fafafa]">
+      <header class="h-14 border-b border-zinc-200 bg-white px-8 flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center gap-4 text-sm font-medium">
+          <span class="text-zinc-400">Allowance</span>
+          <span class="text-zinc-200">/</span>
+          <span id="breadcrumb-view">Inbox</span>
+        </div>
+        <div class="text-xs text-zinc-500" id="privacy-status">Checking Privacy.com status...</div>
+      </header>
+
+      <div class="p-8 max-w-6xl mx-auto">
+        <section id="view-inbox" class="view animate-in">
+          <div class="mb-8 flex items-end justify-between">
+            <div>
+              <h2 class="text-2xl font-bold tracking-tight">Inbox</h2>
+              <p class="text-sm text-zinc-500">Approve or audit recent agent activity.</p>
+            </div>
+          </div>
+
+          <div class="mb-4 flex flex-col md:flex-row gap-2 md:items-center">
+            <div class="flex items-center gap-2">
+              <select id="filter-policy" onchange="renderTransactions()" class="h-8 border border-zinc-200 rounded-md bg-white px-2 text-xs font-medium">
+                <option value="all">All Policies</option>
+              </select>
+              <select id="filter-type" onchange="renderTransactions()" class="h-8 border border-zinc-200 rounded-md bg-white px-2 text-xs font-medium">
+                <option value="all">All Statuses</option>
+                <option value="review">Review Required</option>
+                <option value="approved">Approved</option>
+                <option value="declined">Declined</option>
+              </select>
+            </div>
+            <div class="md:ml-auto"><p class="text-[11px] text-zinc-400 font-medium" id="transaction-count">Loading...</p></div>
+          </div>
+
+          <div class="bg-white border-base rounded-lg overflow-hidden shadow-sm">
+            <div id="transactionList" class="divide-y divide-zinc-100"></div>
+          </div>
+        </section>
+
+        <section id="view-policies" class="view hidden animate-in">
+          <div class="mb-8 flex items-end justify-between">
+            <div>
+              <h2 class="text-2xl font-bold tracking-tight">Policies</h2>
+              <p class="text-sm text-zinc-500">Manage virtual card caps and agent spend rules.</p>
+            </div>
+            <button onclick="openPolicyModal('create')" class="btn-primary h-9 px-4 rounded-md text-sm font-medium transition-all">New Policy</button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="agentGrid"></div>
+        </section>
+
+        <section id="view-logs" class="view hidden animate-in">
+          <div class="mb-6 flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold tracking-tight">System Logs</h2>
+              <p class="text-sm text-zinc-500">Real-time interaction feed from MCP and API.</p>
+            </div>
+            <button onclick="clearLogs()" class="btn-outline h-8 px-3 rounded-md text-xs font-medium">Clear Logs</button>
+          </div>
+          <div class="bg-zinc-950 rounded-t-lg border-x border-t border-zinc-800 p-2 flex items-center gap-1">
+            <button onclick="setLogFilter('all')" id="filter-all" class="log-filter-btn active">All</button>
+            <button onclick="setLogFilter('system')" id="filter-system" class="log-filter-btn">System</button>
+            <button onclick="setLogFilter('privacy')" id="filter-privacy" class="log-filter-btn">Privacy</button>
+            <button onclick="setLogFilter('webhook')" id="filter-webhook" class="log-filter-btn">Webhook</button>
+            <button onclick="setLogFilter('mcp')" id="filter-mcp" class="log-filter-btn">MCP</button>
+          </div>
+          <div class="bg-zinc-950 rounded-b-lg p-6 font-mono text-[13px] leading-relaxed text-zinc-300 overflow-x-auto shadow-sm h-[500px] border-x border-b border-zinc-800" id="logTerminal"></div>
+        </section>
+
+        <section id="view-settings" class="view hidden animate-in">
+          <div class="mb-8">
+            <h2 class="text-2xl font-bold tracking-tight">Settings</h2>
+            <p class="text-sm text-zinc-500">Configure your local environment and API connections.</p>
+          </div>
+          <div class="max-w-xl bg-white border border-zinc-200 rounded-lg p-6 space-y-6">
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Privacy.com API Key</label>
+              <input type="text" id="privacy-key-display" readonly class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-zinc-50 text-sm" />
+              <p class="text-[11px] text-zinc-400">Stored locally. Used to provision virtual cards.</p>
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Notification Webhook URL</label>
+              <input type="text" id="notification-webhook-url" class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-white text-sm" placeholder="https://..." />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Approval Timeout (minutes)</label>
+              <input type="number" id="approval-timeout" class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-white text-sm" min="1" />
+            </div>
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Local Storage Path</label>
+              <input type="text" id="db-path-display" readonly class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-zinc-50 text-sm" />
+            </div>
+            <button onclick="saveSettings()" class="btn-primary h-9 px-4 rounded-md text-sm font-medium">Save Settings</button>
+            <p id="settings-message" class="text-xs text-zinc-500"></p>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-overlay" onclick="closeModal()" class="fixed inset-0 bg-white/80 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+    <div onclick="event.stopPropagation()" class="bg-white border border-zinc-200 rounded-lg w-full max-w-sm shadow-xl animate-in">
+      <div class="p-6">
+        <h3 id="modal-title" class="text-lg font-semibold mb-2">Review Transaction</h3>
+        <p id="modal-desc" class="text-sm text-zinc-500 mb-6"></p>
+        <div class="flex gap-2">
+          <button onclick="closeModal()" class="flex-1 btn-outline h-10 rounded-md text-sm font-medium">Cancel</button>
+          <button id="modal-action-btn" class="flex-1 btn-primary h-10 rounded-md text-sm font-medium">Approve</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="policy-modal-overlay" onclick="closePolicyModal()" class="fixed inset-0 bg-white/80 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
+    <div onclick="event.stopPropagation()" class="bg-white border border-zinc-200 rounded-lg w-full max-w-sm shadow-xl animate-in">
+      <div class="p-6">
+        <h3 id="policy-modal-title" class="text-lg font-semibold mb-2">Create New Policy</h3>
+        <p class="text-sm text-zinc-500 mb-6">Define an allowance for a new agent or task.</p>
+        <div class="space-y-4 mb-8">
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Policy Name</label>
+            <input type="text" id="new-policy-name" class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-white text-sm" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Monthly Allowance (USD)</label>
+            <input type="number" id="new-policy-limit" class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-white text-sm" value="50" />
+          </div>
+          <div>
+            <label class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Merchant Category</label>
+            <select id="new-policy-category" class="w-full h-10 px-3 rounded-md border border-zinc-200 bg-white text-sm">
+              <option value="all">Any Category</option>
+              <option value="Software">Software & APIs</option>
+              <option value="Dining">Dining & Food</option>
+              <option value="Retail">Shopping / Retail</option>
+              <option value="Travel">Travel & Transport</option>
+            </select>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="closePolicyModal()" class="flex-1 btn-outline h-10 rounded-md text-sm font-medium">Cancel</button>
+          <button id="save-policy-btn" class="flex-1 btn-primary h-10 rounded-md text-sm font-medium">Create Policy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
