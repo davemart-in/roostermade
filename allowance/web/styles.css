@@ -103,3 +103,61 @@ body {
 .animate-in {
   animation: fadeIn 0.2s ease-out;
 }
+
+.blank-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(250, 250, 250, 0.98);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.blank-card {
+  width: min(680px, 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: white;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.blank-eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  font-weight: 700;
+}
+
+.blank-title {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.blank-copy {
+  margin: 14px 0 18px;
+  color: #3f3f46;
+  font-size: 14px;
+}
+
+.blank-steps {
+  border: 1px solid var(--border);
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: #3f3f46;
+}
+
+.blank-steps p {
+  margin: 6px 0;
+}

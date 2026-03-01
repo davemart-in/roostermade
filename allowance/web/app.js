@@ -3,6 +3,7 @@ let transactions = [];
 let logsData = [];
 let activeLogFilter = "all";
 let currentReview = null;
+let settingsState = { privacy_connected: false };
 
 async function api(path, opts = {}) {
   const res = await fetch(`/api/v1${path}`, {
@@ -62,6 +63,7 @@ async function loadTransactions() {
 
 async function loadSettings() {
   const data = await api("/settings");
+  settingsState = data || {};
   document.getElementById("privacy-key-display").value = data.privacy_api_key_masked || "(not set)";
   document.getElementById("db-path-display").value = data.db_path || "";
   document.getElementById("notification-webhook-url").value = data.notification_webhook_url || "";
@@ -82,6 +84,17 @@ async function saveSettings() {
   } catch (e) {
     document.getElementById("settings-message").innerText = e.message;
   }
+}
+
+function updateBlankSlateOverlays() {
+  const missingKey = !settingsState.privacy_connected;
+  const noPolicies = settingsState.privacy_connected && agents.length === 0;
+
+  const keyOverlay = document.getElementById("overlay-missing-key");
+  const policyOverlay = document.getElementById("overlay-no-policies");
+
+  if (keyOverlay) keyOverlay.classList.toggle("hidden", !missingKey);
+  if (policyOverlay) policyOverlay.classList.toggle("hidden", !noPolicies);
 }
 
 function renderTransactions() {
@@ -205,6 +218,13 @@ function closePolicyModal() {
   document.getElementById("policy-modal-overlay").classList.add("hidden");
 }
 
+function startFirstPolicy() {
+  const policyOverlay = document.getElementById("overlay-no-policies");
+  if (policyOverlay) policyOverlay.classList.add("hidden");
+  showView("policies");
+  openPolicyModal("create");
+}
+
 document.getElementById("save-policy-btn")?.addEventListener("click", async () => {
   const name = document.getElementById("new-policy-name").value.trim();
   const limit = parseFloat(document.getElementById("new-policy-limit").value || "50");
@@ -292,6 +312,7 @@ async function refreshAll() {
   await loadTransactions();
   await loadSettings();
   await loadLogs();
+  updateBlankSlateOverlays();
 }
 
 window.showView = showView;
@@ -303,6 +324,7 @@ window.setLogFilter = setLogFilter;
 window.clearLogs = clearLogs;
 window.closeAllDropdowns = closeAllDropdowns;
 window.saveSettings = saveSettings;
+window.startFirstPolicy = startFirstPolicy;
 window.renderTransactions = loadTransactions;
 window.toggleAgentStatus = toggleAgentStatus;
 window.provisionCard = provisionCard;

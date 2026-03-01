@@ -164,6 +164,39 @@
     </main>
   </div>
 
+  <div id="overlay-missing-key" class="blank-overlay hidden">
+    <div class="blank-card">
+      <p class="blank-eyebrow">Setup Required</p>
+      <h1 class="blank-title">Add Your Privacy.com API Key</h1>
+      <p class="blank-copy">
+        To use Allowance card provisioning and controls, connect your Privacy.com account first.
+      </p>
+      <div class="blank-steps">
+        <p>1. Get your API key from <a href="https://privacy.com/developer" target="_blank" rel="noopener noreferrer" class="underline">privacy.com/developer</a>.</p>
+        <p>2. In your project folder, create a file named <code>.env</code> (exactly that name, including the leading dot).</p>
+        <p>3. Open <code>.env</code> in any text editor and add:</p>
+        <p class="mt-1 mb-2">
+          <code class="block rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-[12px] text-zinc-800">PRIVACY_API_KEY=your_privacy_com_api_key</code>
+        </p>
+        <p>4. Save the file, restart the app, then refresh this page.</p>
+      </div>
+      <button onclick="window.location.reload()" class="btn-primary h-10 px-4 rounded-md text-sm font-medium">Reload</button>
+    </div>
+  </div>
+
+  <div id="overlay-no-policies" class="blank-overlay hidden">
+    <div class="blank-card">
+      <p class="blank-eyebrow">Welcome</p>
+      <h1 class="blank-title">Create Your First Policy</h1>
+      <p class="blank-copy">
+        Start by creating a policy for your first agent. This will define spending limits and rules.
+      </p>
+      <div class="flex gap-2 justify-center">
+        <button onclick="startFirstPolicy()" class="btn-primary h-10 px-4 rounded-md text-sm font-medium">Add First Policy</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-overlay" onclick="closeModal()" class="fixed inset-0 bg-white/80 backdrop-blur-sm hidden z-[100] flex items-center justify-center p-4">
     <div onclick="event.stopPropagation()" class="bg-white border border-zinc-200 rounded-lg w-full max-w-sm shadow-xl animate-in">
       <div class="p-6">
